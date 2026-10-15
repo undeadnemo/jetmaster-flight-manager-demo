@@ -1,6 +1,6 @@
 # Jetmaster Flight Manager Demo
 
-Static, sanitized English demo build. Fictional data only; no production or
-local SOC services are connected.
+Sanitized English demonstration site for business aviation workflows.
 
-Use any username and password to enter the browser-only demo.
+All names and operational data shown by this static build are fictional. The
+demo runs entirely in the browser and does not connect to production systems.

@@ -45,20 +45,25 @@ self.addEventListener('fetch', (event) => {
 
       if (path.includes('/workbench')) {
         return ok({
-          alerts: [],
           flights: [],
+          generatedAt: new Date().toISOString(),
+          myTodos: [],
           notifications: [],
-          quickActions: [],
+          operatingDate: new Date().toISOString().slice(0, 10),
+          readiness: [],
           risks: [],
-          statistics: {
-            blocked: 0,
-            completed: 3,
+          summary: {
+            activeFlights: 0,
+            completedFlights: 0,
             criticalRisks: 0,
-            inProgress: 2,
-            pendingCloseout: 1,
+            heldFlights: 0,
+            myTodos: 0,
+            pendingAcknowledgements: 0,
+            pendingCloseouts: 0,
+            totalFlights: 0,
             unreadNotifications: 0,
           },
-          tasks: [],
+          timeZone: 'Asia/Shanghai',
         });
       }
 
