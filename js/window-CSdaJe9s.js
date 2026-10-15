@@ -1,0 +1,1 @@
+function a(n,e={}){const{noopener:t=!0,noreferrer:o=!0,target:r="_blank"}=e,s=[t&&"noopener=yes",o&&"noreferrer=yes"].filter(Boolean).join(",");window.open(n,r,s)}function i(n){const{hash:e,origin:t}=location,o=n.startsWith("/")?n:`/${n}`,r=`${t}${e&&!o.startsWith("/#")?"/#":""}${o}`;a(r,{target:"_blank"})}export{a,i as o};
