@@ -1,1 +1,0 @@
-import{br as s}from"./bootstrap-CPY6l74z.js";import{I as o,aF as n,t,ar as c,be as d,aR as l}from"../jse/index-index-3aJwsBzU.js";const u=o({__name:"Card",props:{class:{}},setup(r){const e=r;return(a,p)=>(n(),t("div",{class:c(d(s)("border-border bg-card text-card-foreground rounded-xl border",e.class))},[l(a.$slots,"default")],2))}});export{u as _};
