@@ -1,1 +1,0 @@
-import{r as e}from"./request-DacAOutn.js";function t(e){return{headers:{"Idempotency-Key":e}}}var n={create(n,r){return e.post(`/operations/fault-retentions`,n,t(r))},createDemand(n,r){return e.post(`/operations/fault-retentions/material-demands`,n,t(r))},workspace(){return e.get(`/operations/fault-retentions`)}};export{n as t};
