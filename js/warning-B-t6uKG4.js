@@ -1,1 +1,0 @@
-import{Qn as e}from"../jse/index-index-G1o--zdt.js";import"./useMergeSemantic-Csw_DRiA.js";function t(){}var n=Symbol(`WarningContext`);function r(t){e(n,t)}var i=()=>{let e=()=>{};return e.deprecated=t,e};export{r as n,i as t};

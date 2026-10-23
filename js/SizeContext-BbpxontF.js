@@ -1,0 +1,1 @@
+import{Ln as e,Mn as t,Qn as n,Sn as r}from"../jse/index-index-QUCCz8Vl.js";var i=Symbol(`SizeContext`),a=()=>e(i,r(()=>void 0)),o=t((e,{slots:t})=>{let o=a();return n(i,r(()=>(e==null?void 0:e.size)||o.value)),()=>{var e;return t==null||(e=t.default)==null?void 0:e.call(t)}},{props:{size:{type:[String,null],required:!1}}});function s(e){n(i,e)}export{a as n,s as r,o as t};

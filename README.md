@@ -1,6 +1,5 @@
-# Jetmaster Flight Manager Demo
+# Jetmaster 客户演示
 
-Sanitized English demonstration site for business aviation workflows.
+本仓库发布从 SOC 本地预览环境导出的静态客户演示站点。
 
-All names and operational data shown by this static build are fictional. The
-demo runs entirely in the browser and does not connect to production systems.
+演示数据固定在浏览器静态资源中，不连接本地环境或真实数据库；品牌统一显示为 Jetmaster，飞机注册号已替换为 B 开头的演示编号。

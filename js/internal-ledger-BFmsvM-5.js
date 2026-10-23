@@ -1,0 +1,1 @@
+import{$t as e,Mn as t,Zn as n,wn as r}from"../jse/index-index-QUCCz8Vl.js";import{t as i}from"./ChargeRecordWorkspace-B7Y2BRkx.js";var a=t(e(e({},{name:`FinanceInternalLedger`}),{},{__name:`index`,setup(e){return(e,t)=>(n(),r(i,{"record-type":`INTERNAL_LEDGER`}))}}));export{a as default};

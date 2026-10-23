@@ -1,1 +1,0 @@
-import{$t as e,Mn as t,Nr as n,Zn as r,wn as i}from"../jse/index-index-G1o--zdt.js";import{t as a}from"./fallback-Be7IMNi5.js";var o=t(e(e({},{name:`Fallback403Demo`}),{},{__name:`forbidden`,setup(e){return(e,t)=>(r(),i(n(a),{status:`403`}))}}));export{o as default};

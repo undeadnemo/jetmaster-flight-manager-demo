@@ -1,0 +1,1 @@
+import{Mn as e,Nr as t,Zn as n,wn as r}from"../jse/index-index-QUCCz8Vl.js";import{t as i}from"./fallback-hsGvah_H.js";var a=e({__name:`coming-soon`,setup(e){return(e,a)=>(n(),r(t(i),{status:`coming-soon`}))}});export{a as default};

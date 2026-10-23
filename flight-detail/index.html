@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Starjet SOC 航班运行任务中心 P0 原型" />
+  <title>Starjet SOC · 航班运行中心</title>
+  <script>
+    if (new URLSearchParams(window.location.search).get('mode') === 'formal') {
+      document.documentElement.classList.add('soc-formal-pending');
+    }
+  </script>
+  <link rel="stylesheet" href="styles.css?v=20261009-permit-passenger-1" />
+  <link rel="stylesheet" href="formal-bridge.css?v=20261009-crud-1" />
+  <style>
+    body.mission-reference .resource-code {
+      display: grid !important;
+      place-items: center;
+      color: var(--sj-text-1) !important;
+      background: transparent !important;
+      -webkit-mask: none !important;
+      mask: none !important;
+    }
+
+    body.mission-reference .resource-code svg {
+      display: block !important;
+      width: 100% !important;
+      height: 100% !important;
+      fill: currentcolor !important;
+      stroke: none !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+    }
+
+    body.mission-reference .resource-code svg path,
+    body.mission-reference .resource-code svg circle {
+      fill: currentcolor !important;
+      stroke: none !important;
+    }
+  </style>
+</head>
+<body class="embedded mission-reference">
+  <div class="soc-formal-loading" role="status">正在载入航班运行中心</div>
+  <div class="app-shell">
+    <aside class="rail" aria-label="主导航">
+      <div class="brand" aria-label="Starjet"><span>S</span></div>
+      <nav>
+        <button class="rail-btn" aria-label="工作台">⌂</button>
+        <button class="rail-btn active" aria-label="航班">✈</button>
+        <button class="rail-btn" aria-label="飞机">▱</button>
+        <button class="rail-btn" aria-label="人员">♙</button>
+        <button class="rail-btn" aria-label="消息">◫</button>
+      </nav>
+      <div class="rail-bottom"><button class="rail-btn" aria-label="设置">⚙</button><div class="avatar">ZY</div></div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div class="crumbs"><button class="back-btn" aria-label="返回">←</button><span>行程中心</span><b>/</b><strong>FP-210</strong><b>/</b><strong class="trip-name">北京—东京—新加坡—北京</strong><span id="crumbLeg" hidden>航班 2</span></div>
+        <div class="top-actions"><div class="time-toggle" id="timeToggle" role="group" aria-label="时间基准"><button class="active" data-time-basis="lt" type="button" aria-pressed="true">LT</button><button data-time-basis="utc" type="button" aria-pressed="false">UTC</button><button data-time-basis="beijing" type="button" aria-pressed="false">BJ</button></div><button class="icon-btn text-icon" aria-label="搜索">搜索</button><button class="icon-btn text-icon" aria-label="通知">通知<i></i></button><button class="more-btn">更多操作 ···</button></div>
+      </header>
+
+      <div class="detail-layout">
+      <section class="trip-strip" aria-label="当前行程的航班">
+        <div class="trip-summary"><span>当前行程</span><strong>北京—东京—新加坡—北京</strong><small>TRIP-20260820-001 · 3 个航班 · 20–22 AUG</small></div>
+        <div class="leg-list" role="list">
+          <button class="leg-card completed" data-leg="0" role="listitem"><small>航班 1 · 已到达</small><b>ZBAA → RJTT</b><span>20 AUG · 06:00–10:20</span></button>
+          <button class="leg-card active" data-leg="1" role="listitem" aria-current="true"><small>航班 2 · 准备中</small><b>ZSPD → ZGGG</b><span>21 AUG · 13:30–16:20</span></button>
+          <button class="leg-card" data-leg="2" role="listitem"><small>航班 3 · 待准备</small><b>WSSS → ZBAA</b><span>22 AUG · 09:00–15:10</span></button>
+        </div>
+        <div class="leg-pager"><button id="prevLeg" aria-label="上一个航班">←</button><span><b id="legNumber">2</b> / 3</span><button id="nextLeg" aria-label="下一个航班">→</button></div>
+      </section>
+
+      <nav class="tabs" aria-label="航班详情页面">
+        <button class="tab active" data-tab="dashboard">看板</button>
+        <button class="tab" data-tab="flight">飞机 <em class="tab-module-status warning" aria-label="MEL 1 项故障保留即将到期" title="MEL 1 项故障保留即将到期"><i></i>MEL 1</em></button>
+        <button class="tab" data-tab="compliance">批复 / 许可 <em class="tab-module-status blocked" aria-label="1 项阻碍" title="1 项阻碍"><i></i>1</em></button>
+        <button class="tab" data-tab="fuel">燃油 <em class="tab-module-status ready" aria-label="1 项已确认" title="1 项已确认"><i></i>1</em></button>
+        <button class="tab" data-tab="messages">报文 <em class="tab-module-status info" aria-label="4 条已接收报文" title="4 条已接收报文"><i></i>4</em></button>
+        <button class="tab" data-tab="crew">机组 <em class="tab-module-status ready" aria-label="3 名机组已配置" title="3 名机组已配置"><i></i>3/3</em></button>
+        <button class="tab" data-tab="passengers">乘客 <em class="tab-module-status warning" aria-label="1 项待确认" title="1 项待确认"><i></i>1</em></button>
+        <button class="tab" data-tab="services">保障 <em class="tab-module-status warning" aria-label="1 项待办" title="1 项待办"><i></i>1</em></button>
+        <button class="tab" data-tab="documents">文件 <em class="tab-module-status warning" aria-label="1 项待更新" title="1 项待更新"><i></i>1</em></button>
+        <button class="tab" data-tab="billing">账单管理 <em class="tab-module-status warning" id="billingTabStatus" aria-label="账单待处理" title="账单待处理"><i></i><span>—</span></em></button>
+        <button class="tab" data-tab="postflight">航后日志 <em class="tab-module-status ready" id="postflightTabStatus" hidden><i></i><span></span></em></button>
+      </nav>
+
+      <div class="detail-primary">
+      <section class="mission-dashboard" id="dashboard" aria-labelledby="missionDashboardTitle">
+        <header class="mission-dashboard-head">
+          <div class="mission-route">
+            <div class="mission-kicker"><strong id="movementStatus" class="movement-status is-planned"><i aria-hidden="true"></i><span>PLANNING</span></strong><span class="trip-type">PAX</span></div>
+            <div class="mission-route-line">
+              <div class="mission-airport"><h1 id="depCode">ZSPD</h1><p id="depName">东京羽田 · HND</p><time id="depTime"><span>21 AUG 2026</span><b>13:30 <small>LT</small></b></time></div>
+              <div class="mission-route-mid"><span id="flightDuration">7H 15M</span><div class="route-track"><i></i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg><i></i></div><small id="flightDistance">5,315 KM · IFR</small></div>
+              <div class="mission-airport mission-airport-arrival"><h1 id="arrCode">ZGGG</h1><p id="arrName">新加坡樟宜 · SIN</p><time id="arrTime"><span>21 AUG 2026</span><b>16:20 <small>LT</small></b></time></div>
+            </div>
+          </div>
+          <div class="mission-aircraft-summary">
+            <span>执行飞机</span>
+            <strong><b id="aircraftModel">G650ER</b> · <b id="aircraftRegistration">B-9308</b> <em>MEL</em></strong>
+            <span>任务人员</span>
+            <strong>8 PAX · 3 CREW</strong>
+          </div>
+        </header>
+
+        <div class="mission-time-strip" aria-label="航班计划、预计与实际时间" hidden>
+          <div><span>计划</span><b><time id="scheduledDeparture">14:20 LT</time><i>→</i><time id="scheduledArrival">20:35 LT</time></b></div>
+          <div><span>预计</span><b><time id="estimatedDeparture">14:35 LT</time><i>→</i><time id="estimatedArrival">20:48 LT</time></b></div>
+          <div><span>实际</span><b><time id="actualDeparture">14:37 LT</time><i>→</i><time class="is-empty" id="actualArrival">—</time></b></div>
+          <div class="mission-sync"><span id="movementSummary">航班已离港，持续更新预计到达时间</span><time id="movementUpdatedAt">最后同步 14:39:26</time></div>
+        </div>
+
+        <div class="mission-board-grid">
+          <section class="resource-command" aria-labelledby="missionDashboardTitle">
+            <div class="mission-section-title"><div><h2 id="missionDashboardTitle">运行资源准备</h2></div></div>
+            <div class="resource-command-body">
+              <svg class="readiness-connectors" viewBox="0 0 1000 300" preserveAspectRatio="none" aria-hidden="true">
+                <polyline points="344,39 375,39 500,150"></polyline>
+                <polyline points="344,112 385,112 500,150"></polyline>
+                <polyline points="344,184 385,184 500,150"></polyline>
+                <polyline points="344,257 375,257 500,150"></polyline>
+                <polyline points="656,39 625,39 500,150"></polyline>
+                <polyline points="656,112 615,112 500,150"></polyline>
+                <polyline points="656,184 615,184 500,150"></polyline>
+                <polyline points="656,257 625,257 500,150"></polyline>
+              </svg>
+              <div class="resource-column">
+                <button class="resource-tile is-ready" data-jump="flight" type="button"><span class="resource-code icon-aircraft" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 22v-2.5l3-2.1v-3.6L2 17v-3l8-5.6V4q0-.825.588-1.412T12 2t1.413.588T14 4v4.4l8 5.6v3l-8-3.2v3.6l3 2.1V22l-5-1.5z"/></svg></span><div><b>飞机</b><strong>100%</strong><span>G650ER · B-9308</span><em>机务检查完成 · MEL 2 项（1项到期）</em></div><i>›</i></button>
+                <button class="resource-tile is-ready" data-jump="crew" type="button"><span class="resource-code icon-crew" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M0 18v-1.575q0-1.075 1.1-1.75T4 14q.325 0 .625.013t.575.062q-.35.525-.525 1.1t-.175 1.2V18zm6 0v-1.625q0-.8.438-1.463t1.237-1.162T9.588 13T12 12.75q1.325 0 2.438.25t1.912.75t1.225 1.163t.425 1.462V18zm13.5 0v-1.625q0-.65-.162-1.225t-.488-1.075q.275-.05.563-.062T20 14q1.8 0 2.9.663t1.1 1.762V18zM4 13q-.825 0-1.412-.587T2 11q0-.85.588-1.425T4 9q.85 0 1.425.575T6 11q0 .825-.575 1.413T4 13m16 0q-.825 0-1.412-.587T18 11q0-.85.588-1.425T20 9q.85 0 1.425.575T22 11q0 .825-.575 1.413T20 13m-8-1q-1.25 0-2.125-.875T9 9q0-1.275.875-2.137T12 6q1.275 0 2.138.863T15 9q0 1.25-.862 2.125T12 12"/></svg></span><div><b>机组</b><strong>100%</strong><span>3 / 3 已到位</span><em>飞行机组资质有效</em></div><i>›</i></button>
+                <button class="resource-tile is-ready" data-jump="fuel" type="button"><span class="resource-code icon-fuel" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 21V5q0-.825.588-1.412T6 3h6q.825 0 1.413.588T14 5v7h1q.825 0 1.413.588T17 14v4.5q0 .425.288.713T18 19.5t.713-.288T19 18.5v-7.2q-.225.125-.475.163T18 11.5q-1.05 0-1.775-.725T15.5 9q0-.8.438-1.437T17.1 6.65L15 4.55l1.05-1.05l3.7 3.6q.375.375.563.875T20.5 9v9.5q0 1.05-.725 1.775T18 21t-1.775-.725T15.5 18.5v-5H14V21zm2-11h6V5H6zm12 0q.425 0 .713-.288T19 9t-.288-.712T18 8t-.712.288T17 9t.288.713T18 10"/></svg></span><div><b>燃油</b><strong>100%</strong><span>计划油量 48,500 KG</span><em>已确认 · 放行单已发布</em></div><i>›</i></button>
+                <button class="resource-tile is-warning" data-jump="documents" type="button"><span class="resource-code icon-documents" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 18h8v-2H8zm0-4h8v-2H8zm-2 8q-.825 0-1.412-.587T4 20V4q0-.825.588-1.412T6 2h8l6 6v12q0 .825-.587 1.413T18 22zm7-13h5l-5-5z"/></svg></span><div><b>文件</b><strong>80%</strong><span>6 / 7 已完成</span><em>缺少 1 份目的地机场文件</em></div><i>›</i></button>
+              </div>
+
+              <div class="readiness-core" aria-label="整体准备度 82%">
+                <canvas id="missionReadinessCanvas" aria-hidden="true"></canvas>
+                <div><strong>82<small>%</small></strong><b>准备完成</b></div>
+              </div>
+
+              <div class="resource-column">
+                <button class="resource-tile is-blocked" data-jump="compliance" type="button"><span class="resource-code icon-permit" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 21q-.825 0-1.412-.587T2 19V5q0-.825.588-1.412T4 3h16q.825 0 1.413.588T22 5v14q0 .825-.587 1.413T20 21zm1-4h5v-2H5zm9.55-2l4.95-4.95l-1.425-1.425l-3.525 3.55l-1.425-1.425l-1.4 1.425zM5 13h5v-2H5zm0-4h5V7H5z"/></svg></span><div><b>许可</b><strong>60%</strong><span>1 / 2 已取得</span><em>新加坡离港许可待批</em></div><i>›</i></button>
+                <button class="resource-tile is-ready" data-jump="compliance" type="button"><span class="resource-code icon-slot" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m15.3 16.7l1.4-1.4l-3.7-3.7V7h-2v5.4zM12 22q-2.075 0-3.9-.788t-3.175-2.137T2.788 15.9T2 12t.788-3.9t2.137-3.175T8.1 2.788T12 2t3.9.788t3.175 2.137T21.213 8.1T22 12t-.788 3.9t-2.137 3.175t-3.175 2.138T12 22"/></svg></span><div><b>时刻</b><strong>100%</strong><span>ZSPD 09:50–10:10</span><em>ZGGG 计划 16:20（STD）</em></div><i>›</i></button>
+                <button class="resource-tile is-ready" data-jump="services" type="button"><span class="resource-code icon-handling" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.875 18.125Q3 17.25 3 16H1V7q0-.825.588-1.412T3 5h14l6 6v5h-2q0 1.25-.875 2.125T18 19t-2.125-.875T15 16H9q0 1.25-.875 2.125T6 19t-2.125-.875M15 10h4l-3-3h-1zm-6 0h4V7H9zm-6 0h4V7H3zm3.888 6.888q.362-.363.362-.888t-.363-.888T6 14.75t-.888.363T4.75 16t.363.888t.887.362t.888-.363m12 0q.362-.362.362-.887t-.363-.888T18 14.75t-.888.363t-.362.887t.363.888t.887.362t.888-.363"/></svg></span><div><b>地面保障</b><strong>100%</strong><span>地服与保障资源已确认</span><em>ZSPD / ZGGG 均已就绪</em></div><i>›</i></button>
+                <button class="resource-tile is-warning" data-jump="passengers" type="button"><span class="resource-code icon-passenger" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9.175 10.825Q8 9.65 8 8t1.175-2.825T12 4t2.825 1.175T16 8t-1.175 2.825T12 12t-2.825-1.175M4 20v-2.8q0-.85.438-1.562T5.6 14.55q1.55-.775 3.15-1.162T12 13t3.25.388t3.15 1.162q.725.375 1.163 1.088T20 17.2V20z"/></svg></span><div><b>旅客</b><strong>75%</strong><span>6 / 8 已确认</span><em>2 名旅客确认行程文件</em></div><i>›</i></button>
+              </div>
+            </div>
+          </section>
+
+          <aside class="flight-phase-board" aria-label="航班动态">
+            <div class="mission-countdown">
+              <div class="mission-dynamic-head"><b>航班动态</b><em>待起飞</em><button type="button">查看完整日志 →</button></div>
+              <span>起飞倒计时</span>
+              <strong>04:10:32</strong>
+            </div>
+            <ol class="flight-phase-list" tabindex="0" aria-label="航班动态节点，可滚动查看">
+              <li class="is-complete"><span class="phase-node"></span><time>09:15</time><div><b>准备签发</b><small>运行计划已批准 <span class="phase-source">FPL</span></small></div><em>完成</em></li>
+              <li class="is-complete"><span class="phase-node"></span><time>10:00</time><div><b>机组报到</b><small>3 / 3 已到位 <span class="phase-source">人员</span></small></div><em>完成</em></li>
+              <li class="is-current"><span class="phase-node"></span><time>12:30</time><div><b>旅客登机</b><small>预计开始登机 <span class="phase-source">人员</span></small></div><em>当前</em></li>
+              <li><span class="phase-node"></span><time>13:10</time><div><b>推出 / 滑行</b><small>预计推出时间 <span class="phase-source">ACARS</span></small></div><em>待执行</em></li>
+              <li><span class="phase-node"></span><time>13:30</time><div><b>起飞</b><small>STD · ZSPD <span class="phase-source">ADS-B</span></small></div><em>待执行</em></li>
+              <li><span class="phase-node"></span><time>13:30 – 16:00</time><div><b>巡航</b><small>7H 15M <span class="phase-source">ADS-B</span></small></div><em>待执行</em></li>
+              <li><span class="phase-node"></span><time>16:20</time><div><b>到达</b><small>STA · ZGGG <span class="phase-source">ADS-B</span></small></div><em>待执行</em></li>
+            </ol>
+          </aside>
+        </div>
+
+        <div class="mission-aircraft-data" aria-hidden="true">
+          <span id="aircraftParkingAirport">ZSSS</span><time id="aircraftParkingTime">2026-08-22 19:51</time>
+        </div>
+      </section>
+
+      <footer class="mission-footer"><span>▦　STARJET　运行指挥中心</span><span>安全运行　·　精准保障　·　全程可控</span><span>2026-09-19 10:32:18 LT　|　v2.4.1</span></footer>
+
+      <div class="workspace">
+        <div class="content">
+          <!-- 运行总览代码暂时保留，后续可按需要重新启用。 -->
+          <section class="tab-panel retired-overview" id="overview" hidden aria-hidden="true">
+            <div class="section-heading"><div><h2>运行总览</h2></div><span>最后同步：10:32:18</span></div>
+            <div class="timeline card">
+              <div class="card-title"><h3>航班时间轴</h3><span class="badge blue">计划阶段</span></div>
+              <div class="time-track">
+                <div class="track-base"><span style="left:10%"></span><span style="left:32%"></span><span style="left:68%"></span><span style="left:90%"></span></div>
+                <div class="milestone" style="left:10%"><b>08:30</b><span>机组报到</span></div>
+                <div class="milestone" style="left:32%"><b>09:15</b><span>旅客抵达</span></div>
+                <div class="milestone main" style="left:68%"><b id="timelineDepTime">10:00</b><span>计划起飞 STD</span></div>
+                <div class="milestone" style="left:90%"><b id="timelineArrTime">14:20</b><span>计划到达 STA</span></div>
+              </div>
+              <div class="slot-strip"><span>SLOT</span><b>09:50—10:10</b><small>起飞窗口剩余 01:18:42</small></div>
+            </div>
+
+            <div class="overview-grid">
+              <div class="card readiness-card">
+                <div class="card-title"><h3>航班准备度</h3><button data-jump="compliance">查看详情 →</button></div>
+                <div id="readinessList"></div>
+              </div>
+            </div>
+
+            <div class="snapshot-grid">
+              <article class="mini-card"><div class="mini-head"><span class="plane-icon">✈</span><div><small>飞机</small><h3 id="overviewAircraft">B-XXXX · G650ER</h3></div><b class="ok">可用</b></div><div class="mini-stats"><p><span>当前位置</span><b>ZBAA 北京</b></p><p><span>下次检修</span><b>27 AUG · 18 FH</b></p><p class="warning"><span>运行限制</span><b>APU 不工作</b></p></div></article>
+              <article class="mini-card"><div class="mini-head"><span class="crew-icon">♙</span><div><small>机组</small><h3>3 名机组已确认</h3></div><b class="ok">合法</b></div><div class="crew-line"><span>PIC</span><b>张伟</b><em>10:45 / 13:00</em><i>余 2:15</i></div><div class="crew-line"><span>SIC</span><b>李明</b><em>09:50 / 13:00</em><i>余 3:10</i></div><div class="crew-line"><span>CC</span><b>王敏</b><em>09:50 / 13:00</em><i>余 3:10</i></div></article>
+            </div>
+          </section>
+
+          <section class="tab-panel active" id="flight">
+            <div class="section-heading"><div><h2>飞机信息与故障保留</h2></div><button class="primary-btn" id="editFlightSection" type="button">编辑航段</button></div>
+            <div class="card details-grid"><div><span>行程编号</span><b>TRIP-20260820-001</b></div><div><span>航段编号</span><b>LEG-001</b></div><div><span>航班号</span><b>SJ6801</b></div><div><span>任务类型</span><b id="flightTaskType">包机</b></div><div><span>飞行规则</span><b>IFR</b></div><div><span>备降机场</span><b>RJAA · 成田</b></div></div>
+            <div class="flight-aircraft-grid aircraft-only">
+              <div class="card aircraft-detail"><div class="aircraft-hero"><small>飞机</small><h2 id="aircraftDetailRegistration">B-XXXX</h2><p id="aircraftDetailModel">Gulfstream G650ER</p></div><div class="aircraft-data"><div><span>基地</span><b>ZBAA · 北京</b></div><div><span>座位 / 行李</span><b>14 / 1,950 kg</b></div><div><span>最大起飞重量</span><b>48,807 kg</b></div><div><span>飞机当前定位</span><b id="aircraftCurrentPosition">—</b><small id="aircraftPositionTime">—</small></div><div id="nextLegInfo"><span>下一航段</span><b id="aircraftNextLeg">—</b><small id="aircraftNextLegTime">—</small></div></div></div>
+            </div>
+            <div class="module-subheading mel-heading"><div><h3>故障保留</h3></div></div>
+            <div class="card mel-list" role="table" aria-label="故障保留列表">
+              <div class="mel-list-row mel-list-head" role="row"><span role="columnheader">保留编号 / MEL</span><span role="columnheader">保留次数</span><span role="columnheader">故障报告</span><span role="columnheader">保留原因</span><span role="columnheader">修复类别 / 到期时间</span><span role="columnheader">放行状态</span><span role="columnheader">附件</span></div>
+              <div class="mel-list-row" role="row">
+                <span role="cell"><b>DR-2026-0198</b><small>MEL 21-31-02 · ATA 21</small></span>
+                <span role="cell"><b class="mel-retention-count">第 2 次保留</b><small>当前记录 · 2026-08-24</small></span>
+                <span role="cell"><b>右侧空调组件控制失效</b><small>右侧组件保持关闭，左侧组件工作正常</small></span>
+                <span role="cell"><b>等待更换控制组件</b><small>所需航材：PACK CONTROL UNIT</small></span>
+                <span role="cell"><b>C 类</b><small class="mel-due">2026-08-29 23:59 BJ</small></span>
+                <span role="cell"><em class="status warning">限制条件下可放行</em><small>机长已通知 · 机务经理已批准</small></span>
+                <span role="cell"><button class="mel-attachment-button" id="viewMelAttachment" type="button" data-mel-attachment data-file="DR-2026-0198.pdf" data-control-no="DR-2026-0198" data-issue-date="2026-08-24" data-due-date="2026-08-29 23:59 BJ"><b>PDF</b><span>保留故障单</span><small>DR-2026-0198.pdf</small></button></span>
+              </div>
+              <div class="mel-list-row is-history" role="row">
+                <span role="cell"><b>DR-2026-0198-R1</b><small>MEL 21-31-02 · ATA 21</small></span>
+                <span role="cell"><b class="mel-retention-count">第 1 次保留</b><small>历史记录 · 2026-08-19</small></span>
+                <span role="cell"><b>右侧空调组件控制失效</b><small>首次发现故障，隔离右侧空调组件</small></span>
+                <span role="cell"><b>等待航材到位</b><small>已申请 PACK CONTROL UNIT</small></span>
+                <span role="cell"><b>C 类</b><small>2026-08-24 23:59 BJ</small></span>
+                <span role="cell"><em class="status info">已续保</em><small>2026-08-24 转第 2 次保留</small></span>
+                <span role="cell"><button class="mel-attachment-button" id="viewMelAttachmentFirst" type="button" data-mel-attachment data-file="DR-2026-0198-R1.pdf" data-control-no="DR-2026-0198-R1" data-issue-date="2026-08-19" data-due-date="2026-08-24 23:59 BJ"><b>PDF</b><span>第 1 次保留单</span><small>DR-2026-0198-R1.pdf</small></button></span>
+              </div>
+            </div>
+          </section>
+
+          <section class="tab-panel" id="crew">
+            <div class="section-heading"><div><h2>机组配置</h2></div><span>3 人已配置 · 2 人正式排班 · 1 人预排班</span></div>
+            <div class="card crew-config-card">
+              <div class="card-title"><h3>当前配置的机组成员</h3><span class="badge warning">1 项执照告警</span></div>
+              <div class="crew-config-table" role="table" tabindex="0" aria-label="当前航班机组配置，可横向滚动查看">
+                <div class="crew-config-row crew-config-head" role="row"><span role="columnheader">机组类别</span><span role="columnheader">状态</span><span role="columnheader">中文名</span><span role="columnheader">英文名</span><span role="columnheader">证件</span><span role="columnheader">技术执照</span><span role="columnheader">机型执照</span></div>
+                <div class="crew-config-row" role="row">
+                  <span class="crew-category" role="cell"><b>机长</b><small>PIC</small></span>
+                  <span role="cell"><em class="roster-state is-official">正式排班</em></span>
+                  <span class="crew-name" role="cell"><b>张伟</b><small>CR-001</small></span>
+                  <span class="crew-name-en" role="cell">ZHANG WEI</span>
+                  <span class="crew-credential" role="cell"><b>中国护照</b><small>G123••••• · 有效至 2031-05-18</small></span>
+                  <span class="crew-credential" role="cell"><b>航线运输驾驶员执照</b><small>ATPL · 有效至 2027-11-30</small></span>
+                  <span class="crew-credential" role="cell"><b>G650ER 型别签注</b><small>有效至 2027-08-31</small></span>
+                </div>
+                <div class="crew-config-row" role="row">
+                  <span class="crew-category" role="cell"><b>副驾驶</b><small>SIC</small></span>
+                  <span role="cell"><em class="roster-state is-preliminary">预排班</em></span>
+                  <span class="crew-name" role="cell"><b>李航</b><small>CR-002</small></span>
+                  <span class="crew-name-en" role="cell">LI HANG</span>
+                  <span class="crew-credential" role="cell"><b>中国护照</b><small>E882••••• · 有效至 2030-11-02</small></span>
+                  <span class="crew-credential" role="cell"><b>商用驾驶员执照</b><small>CPL · 有效至 2027-06-20</small></span>
+                  <span class="crew-credential" role="cell"><b>G650ER 型别签注</b><small>有效至 2027-04-12</small></span>
+                </div>
+                <div class="crew-config-row" role="row">
+                  <span class="crew-category" role="cell"><b>乘务员</b><small>CC</small></span>
+                  <span role="cell"><em class="roster-state is-official">正式排班</em></span>
+                  <span class="crew-name" role="cell"><b>王蕾</b><small>CR-003</small></span>
+                  <span class="crew-name-en" role="cell">WANG LEI</span>
+                  <span class="crew-credential" role="cell"><b>中国护照</b><small>P668••••• · 有效至 2029-09-16</small></span>
+                  <span class="crew-credential has-expired" role="cell"><b>客舱乘务员训练合格证</b><small>有效期至 2026-08-05</small><em>已过期</em></span>
+                  <span class="crew-credential" role="cell"><b>G650ER 客舱机型训练</b><small>有效至 2027-03-28</small></span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="tab-panel" id="passengers">
+            <div class="section-heading"><div><h2>乘客证件</h2><p>实际乘客人数：3</p></div><label class="primary-btn passenger-upload">上传乘客证件<input id="passengerDocumentUpload" type="file" accept="image/*,.pdf" hidden></label></div>
+            <div class="ocr-status" id="passengerOcrStatus" hidden></div>
+            <div class="card passenger-document-card">
+              <div class="card-title"><h3>乘客证件清单</h3><span id="passengerDocumentCount">3 人 · 3 份证件</span></div>
+              <div class="passenger-document-table" role="table" tabindex="0" aria-label="乘客证件清单，可横向滚动查看">
+                <div class="passenger-document-row passenger-document-head" role="row"><span role="columnheader">ID.</span><span role="columnheader">英文名</span><span role="columnheader">中文名</span><span role="columnheader">性别</span><span role="columnheader">出生日期</span><span role="columnheader">国籍</span><span role="columnheader">国籍代码</span><span role="columnheader">证件种类</span><span role="columnheader">证件号码</span><span role="columnheader">失效日期</span><span role="columnheader">附件</span><span role="columnheader">排序</span></div>
+                <div class="passenger-document-row" role="row" data-passenger-row><span role="cell" data-passenger-sequence>01</span><span class="passenger-primary" role="cell">LI MING</span><span role="cell">李明</span><span role="cell">男</span><span role="cell">1986-03-18</span><span role="cell">中国</span><span class="passenger-code" role="cell">CHN</span><span role="cell">普通护照</span><span class="passenger-code" role="cell">G123•••••</span><span class="passenger-code" role="cell">2031-05-18</span><span role="cell"><button class="passenger-attachment" type="button">查看 1</button></span><span class="passenger-sort-cell" role="cell"><span data-passenger-order>1</span><span class="passenger-sort-actions"><button type="button" data-passenger-move="up" aria-label="上移 LI MING">↑</button><button type="button" data-passenger-move="down" aria-label="下移 LI MING">↓</button></span></span></div>
+                <div class="passenger-document-row" role="row" data-passenger-row><span role="cell" data-passenger-sequence>02</span><span class="passenger-primary" role="cell">CHEN YU</span><span role="cell">陈宇</span><span role="cell">女</span><span role="cell">1991-11-02</span><span role="cell">中国</span><span class="passenger-code" role="cell">CHN</span><span role="cell">普通护照</span><span class="passenger-code" role="cell">E882•••••</span><span class="passenger-code" role="cell">2030-11-02</span><span role="cell"><button class="passenger-attachment" type="button">查看 2</button></span><span class="passenger-sort-cell" role="cell"><span data-passenger-order>2</span><span class="passenger-sort-actions"><button type="button" data-passenger-move="up" aria-label="上移 CHEN YU">↑</button><button type="button" data-passenger-move="down" aria-label="下移 CHEN YU">↓</button></span></span></div>
+                <div class="passenger-document-row" role="row" data-passenger-row><span role="cell" data-passenger-sequence>03</span><span class="passenger-primary" role="cell">WANG JING</span><span role="cell">王静</span><span role="cell">女</span><span role="cell">1989-09-16</span><span role="cell">新加坡</span><span class="passenger-code" role="cell">SGP</span><span role="cell">普通护照</span><span class="passenger-code" role="cell">K668•••••</span><span class="passenger-code" role="cell">2029-09-16</span><span role="cell"><button class="passenger-attachment" type="button">查看 1</button></span><span class="passenger-sort-cell" role="cell"><span data-passenger-order>3</span><span class="passenger-sort-actions"><button type="button" data-passenger-move="up" aria-label="上移 WANG JING">↑</button><button type="button" data-passenger-move="down" aria-label="下移 WANG JING">↓</button></span></span></div>
+              </div>
+            </div>
+            <section class="passenger-consistency" id="passengerDocumentComparison" aria-labelledby="passengerComparisonTitle">
+              <div class="card-title"><h3 id="passengerComparisonTitle">进出港证件一致性比对</h3><span class="badge warning">1 项需复核</span></div>
+              <div class="passenger-comparison-table" role="table" aria-label="进出港乘客证件一致性比对">
+                <div class="passenger-comparison-row passenger-comparison-head" role="row"><span role="columnheader">乘客</span><span role="columnheader">进港证件</span><span role="columnheader">出港证件</span><span role="columnheader">比对结果</span></div>
+                <div class="passenger-comparison-row" role="row"><span role="cell"><b>LI MING</b><small>李明</small></span><span role="cell"><b>中国护照</b><small>G123•••••</small></span><span role="cell"><b>中国护照</b><small>G123•••••</small></span><span role="cell"><em class="comparison-state is-matched">一致</em></span></div>
+                <div class="passenger-comparison-row has-mismatch" role="row"><span role="cell"><b>CHEN YU</b><small>陈宇</small></span><span role="cell"><b>中国护照</b><small>E882•••••</small></span><span role="cell"><b>圣基茨和尼维斯护照</b><small>RE24•••••</small></span><span role="cell"><em class="comparison-state is-mismatch">不一致</em><small>请确认本航段证件使用方案</small></span></div>
+              </div>
+            </section>
+          </section>
+
+          <section class="tab-panel" id="services">
+            <div class="section-heading service-section-heading"><div><h2>地面保障</h2><p>接送机地点、行程保障人与餐单统一配置</p></div><button class="primary-btn" id="saveGroundService" type="button">保存保障配置</button></div>
+            <div class="service-summary" aria-label="地面保障状态汇总">
+              <div><span>保障站点</span><strong>2</strong><small>起飞站 / 到达站</small></div>
+              <div><span>接送机地点</span><strong class="is-ready" id="serviceLocationCount">2</strong><small>已配置地点</small></div>
+              <div><span>行程保障人</span><strong class="is-ready" id="serviceGuarantorCount">2</strong><small>本航段保障人员</small></div>
+              <div><span>餐单菜品</span><strong id="mealDishCount">27</strong><small>3 组餐食方案</small></div>
+            </div>
+            <div class="service-workbench">
+              <article class="card service-station-card" data-service-station="dep">
+                <header class="service-station-head"><div><span class="station-direction">DEP · 起飞站</span><h3><b id="serviceDepartureAirport">ZSPD</b><span id="serviceDepartureName">上海浦东</span></h3></div></header>
+                <div class="service-block service-location-block"><div class="service-block-title"><h4>接机 / 送机地点</h4><span class="service-type-chip">FBO</span></div><div class="service-location" id="serviceLocationDep"></div></div>
+                <div class="service-block"><div class="service-block-title"><h4>行程保障人</h4><button type="button" data-add-guarantor="dep">+ 添加</button></div><div class="guarantor-list" id="serviceGuarantorDep"></div></div>
+              </article>
+              <article class="card service-station-card" data-service-station="arr">
+                <header class="service-station-head"><div><span class="station-direction">ARR · 到达站</span><h3><b id="serviceArrivalAirport">UACC</b><span id="serviceArrivalName">阿斯塔纳</span></h3></div></header>
+                <div class="service-block service-location-block"><div class="service-block-title"><h4>接机 / 送机地点</h4><span class="service-type-chip">FBO</span></div><div class="service-location" id="serviceLocationArr"></div></div>
+                <div class="service-block"><div class="service-block-title"><h4>行程保障人</h4><button type="button" data-add-guarantor="arr">+ 添加</button></div><div class="guarantor-list" id="serviceGuarantorArr"></div></div>
+              </article>
+            </div>
+            <article class="card meal-config-card">
+              <header><div><span class="meal-eyebrow">CATERING · 本航段餐单</span><h3>餐单</h3></div><div class="meal-head-actions"><label>状态<select id="mealStatus"><option>未提交</option><option>待确认</option><option selected>部分确认</option><option>已确认</option></select></label><button class="secondary-action" id="openMealMenu" type="button">查看 / 编辑餐单</button></div></header>
+              <div class="meal-overview"><div><span>菜品总数</span><strong><b id="mealDishCountInline">27</b> 道</strong></div><div><span>餐食方案</span><strong>西式早餐、鸡汁黄鱼套餐、小青龙套餐</strong></div><div><span>供应商</span><strong>Sky Catering</strong></div><div><span>计划交付</span><strong>21 AUG 11:10 LT · ZSPD FBO</strong></div></div>
+              <div class="meal-plan-strip" id="mealPlanStrip" aria-label="餐食方案概览"></div>
+            </article>
+          </section>
+
+          <section class="tab-panel" id="fuel">
+            <div class="section-heading"><div><h2>燃油计划</h2></div><button class="primary-btn" id="saveFuelRecords" type="button">保存油量记录</button></div>
+            <div class="card fuel-card"><div class="card-title"><h3>关键节点油量记录</h3><label class="fuel-unit-control"><span>单位</span><select id="fuelUnit" aria-label="油量单位"><option value="lb" selected>lb</option><option value="kg">kg</option></select></label></div><div class="fuel-record-grid"><label><span>起飞前存量燃油</span><input id="fuelBeforeDeparture" type="number" min="0" step="10" value="18350"><small>起飞前最终确认 · <i class="fuel-unit-label">lb</i></small></label><label><span>起飞后剩余燃油</span><input id="fuelAfterDeparture" type="number" min="0" step="10" value="12400"><small>ACARS 08:03Z · <i class="fuel-unit-label">lb</i></small></label><label><span>加油前存量燃油</span><input id="fuelBeforeRefuel" type="number" min="0" step="10" value="4860"><small>到达后实测 · <i class="fuel-unit-label">lb</i></small></label><label><span>新增加注油量</span><input id="fuelUplift" type="number" min="0" step="10" value="6300"><small>供应商加油单 · <i class="fuel-unit-label">lb</i></small></label><div class="fuel-total"><span>加油后总量</span><b><span id="fuelAfterRefuel">11,160</span> <i class="fuel-unit-label">lb</i></b><small>存量 + 新增加注</small></div></div><div class="fuel-order"><span>供应商：China Aviation Oil</span><span>最近更新：08:42Z</span><strong>记录完整</strong></div></div>
+          </section>
+
+          <section class="tab-panel" id="billing">
+            <div class="section-heading"><div><h2>账单管理</h2></div><span id="billingTemplateLabel">按航班类型读取配置</span></div>
+            <div class="billing-summary" aria-label="航班账单统计">
+              <div><span>预配置账单</span><strong id="billingTotal">0</strong></div>
+              <div><span>待上传</span><strong class="is-warning" id="billingMissing">0</strong></div>
+              <div><span>已上传</span><strong class="is-info" id="billingReceived">0</strong></div>
+              <div><span>已付款</span><strong class="is-ready" id="billingPaid">0</strong></div>
+            </div>
+            <div class="card billing-card">
+              <div class="billing-table" id="billingTable" aria-live="polite"></div>
+            </div>
+          </section>
+
+          <section class="tab-panel" id="compliance">
+            <div class="section-heading"><div><h2>航前资源与许可</h2></div></div>
+            <div class="card operation-log-card">
+              <div class="card-title"><h3>批复与变更</h3></div>
+              <div class="change-record-table" role="table" aria-label="批复计划列表">
+                <div class="change-record-head" role="row">
+                  <span role="columnheader">批复时间</span><span role="columnheader">描述</span><span role="columnheader">创建人</span><span role="columnheader">时间</span><span role="columnheader">操作</span>
+                </div>
+                <div class="change-record-list" id="changeRecordList" role="rowgroup">
+                  <div class="change-record" role="row" data-change-record="0" data-record-time="2026-08-20T21:41:00+08:00">
+                    <time class="change-approval-time" role="cell" datetime="2026-08-21T21:41:00+08:00">2026-08-21 21:41 LT</time><span class="change-description" role="cell">时间提前一天至 8.21，21:41 起飞</span><span role="cell">李悦</span><time role="cell" datetime="2026-08-20T21:41:00+08:00">2026-08-20 21:41 BJ</time>
+                    <button type="button" data-change-record-action>设为生效</button>
+                  </div>
+                  <div class="change-record" role="row" data-change-record="1" data-record-time="2026-08-20T18:17:00+08:00">
+                    <time class="change-approval-time" role="cell" datetime="2026-08-22T13:30:00+08:00">2026-08-22 13:30 LT</time><span class="change-description" role="cell">变更日期 8.23 → 8.22</span><span role="cell">张园</span><time role="cell" datetime="2026-08-20T18:17:00+08:00">2026-08-20 18:17 BJ</time>
+                    <button type="button" data-change-record-action>设为生效</button>
+                  </div>
+                  <div class="change-record" role="row" data-change-record="2" data-record-time="2026-08-20T09:46:00+08:00">
+                    <time class="change-approval-time" role="cell" datetime="2026-08-21T10:00:00+08:00">2026-08-21 10:00 LT</time><span class="change-description" role="cell">起飞时刻 09:40 → 10:00</span><span role="cell">王强</span><time role="cell" datetime="2026-08-20T09:46:00+08:00">2026-08-20 09:46 BJ</time>
+                    <button type="button" data-change-record-action>设为生效</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="module-subheading"><div><h3>许可与时刻</h3></div><div class="permit-heading-actions"><button class="primary-btn" id="addPermit" type="button">新增</button></div></div>
+            <div class="card permit-card">
+              <div class="permit-table" id="permitTable">
+                <div class="permit-row permit-head"><span>许可类型</span><span>描述</span><span>状态</span><span>操作</span></div>
+                <div class="permit-row"><select class="permit-type" aria-label="日本落地许可类型"><option selected>Permit</option><option>Slot</option><option>PPR</option><option>Parking</option></select><span>日本落地许可 · APR-JP-20881 · 截止今日 14:00</span><select class="permit-status" aria-label="日本落地许可状态"><option>待申请</option><option selected>处理中</option><option>已批准</option><option>不适用</option></select><div class="permit-actions"><button class="permit-delete" type="button" aria-label="删除日本落地许可">删除</button></div></div>
+                <div class="permit-row"><select class="permit-type" aria-label="RJTT 起降时刻类型"><option>Permit</option><option selected>Slot</option><option>PPR</option><option>Parking</option></select><span>RJTT 起降时刻 · 10:00 ±15 MIN · 20 AUG</span><select class="permit-status" aria-label="Slot 状态"><option>待申请</option><option>处理中</option><option selected>已批准</option><option>不适用</option></select><div class="permit-actions"><button class="permit-delete" type="button" aria-label="删除 RJTT 起降时刻">删除</button></div></div>
+                <div class="permit-row"><select class="permit-type" aria-label="RJTT PPR 类型"><option>Permit</option><option>Slot</option><option selected>PPR</option><option>Parking</option></select><span>RJTT PPR · NOT REQUIRED</span><select class="permit-status" aria-label="PPR 状态"><option>待申请</option><option>处理中</option><option>已批准</option><option selected>不适用</option></select><div class="permit-actions"><button class="permit-delete" type="button" aria-label="删除 RJTT PPR">删除</button></div></div>
+                <div class="permit-row"><select class="permit-type" aria-label="RJTT 停机位类型"><option>Permit</option><option>Slot</option><option>PPR</option><option selected>Parking</option></select><span>RJTT 停机位 · INT'L APRON · 20 AUG 09:00</span><select class="permit-status" aria-label="Parking 状态"><option>待申请</option><option>处理中</option><option selected>已批准</option><option>不适用</option></select><div class="permit-actions"><button class="permit-delete" type="button" aria-label="删除 RJTT 停机位">删除</button></div></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="tab-panel" id="documents">
+            <div class="section-heading"><div><h2>文件导出</h2></div></div>
+            <div class="card export-selector">
+              <header class="export-selector-toolbar">
+                <div class="export-selection-summary"><span>已选择</span><strong id="selectedExportCount">0</strong><span>/ 19 项</span></div>
+                <div class="export-selection-tools"><button type="button" data-export-select-all>全选</button><button type="button" data-export-clear>清空</button></div>
+                <div class="export-output-actions"><fieldset class="export-format" aria-label="导出文件格式"><label><input type="radio" name="exportFormat" value="pdf" checked><span>PDF</span></label><label><input type="radio" name="exportFormat" value="excel"><span>Excel</span></label></fieldset><div class="export-primary-actions"><button type="button" data-preview-selected disabled>预览已选</button><button class="primary-btn" type="button" data-export-selected disabled>导出 PDF · 0 项</button></div></div>
+              </header>
+              <div class="export-group-list">
+                <article class="export-group is-standalone" data-export-section="flight-leg">
+                  <div class="export-group-head"><label><input type="checkbox" data-export-item value="flight-leg"><span class="export-checkbox"></span><span><b>航段提取</b></span></label></div>
+                </article>
+                <article class="export-group is-standalone" data-export-section="flight-assignment">
+                  <div class="export-group-head"><label><input type="checkbox" data-export-item value="flight-assignment"><span class="export-checkbox"></span><span><b>飞行任务书</b></span></label></div>
+                </article>
+                <article class="export-group" data-export-section="crew-trip-sheet">
+                  <div class="export-group-head"><label><input type="checkbox" data-export-group="crew-trip-sheet"><span class="export-checkbox"></span><span><b>行程清单 - 机组</b></span></label><em data-export-group-count>0 / 6</em><button type="button" data-export-toggle="crew-trip-sheet" aria-expanded="true">收起</button></div>
+                  <div class="export-group-items" data-export-group-items="crew-trip-sheet">
+                    <label><input type="checkbox" data-export-item data-group="crew-trip-sheet" value="crew-information"><span class="export-checkbox"></span><span>机组信息</span></label>
+                    <label><input type="checkbox" data-export-item data-group="crew-trip-sheet" value="crew-airport-service"><span class="export-checkbox"></span><span>机场服务</span></label>
+                    <label><input type="checkbox" data-export-item data-group="crew-trip-sheet" value="crew-service-notice"><span class="export-checkbox"></span><span>服务提示</span></label>
+                    <label><input type="checkbox" data-export-item data-group="crew-trip-sheet" value="crew-permit-notice"><span class="export-checkbox"></span><span>许可提示</span></label>
+                    <label><input type="checkbox" data-export-item data-group="crew-trip-sheet" value="crew-passenger-information"><span class="export-checkbox"></span><span>乘客信息</span></label>
+                    <label><input type="checkbox" data-export-item data-group="crew-trip-sheet" value="crew-documents"><span class="export-checkbox"></span><span>证件</span></label>
+                  </div>
+                </article>
+                <article class="export-group" data-export-section="customer-trip-sheet">
+                  <div class="export-group-head"><label><input type="checkbox" data-export-group="customer-trip-sheet"><span class="export-checkbox"></span><span><b>行程清单 - 客户</b></span></label><em data-export-group-count>0 / 3</em><button type="button" data-export-toggle="customer-trip-sheet" aria-expanded="true">收起</button></div>
+                  <div class="export-group-items" data-export-group-items="customer-trip-sheet">
+                    <label><input type="checkbox" data-export-item data-group="customer-trip-sheet" value="customer-crew-information"><span class="export-checkbox"></span><span>机组信息</span></label>
+                    <label><input type="checkbox" data-export-item data-group="customer-trip-sheet" value="customer-airport-service"><span class="export-checkbox"></span><span>机场服务</span></label>
+                    <label><input type="checkbox" data-export-item data-group="customer-trip-sheet" value="customer-passenger-information"><span class="export-checkbox"></span><span>乘客信息</span></label>
+                  </div>
+                </article>
+                <article class="export-group" data-export-section="ciq-package">
+                  <div class="export-group-head"><label><input type="checkbox" data-export-group="ciq-package"><span class="export-checkbox"></span><span><b>三关文件</b></span></label><em data-export-group-count>0 / 8</em><button type="button" data-export-toggle="ciq-package" aria-expanded="true">收起</button></div>
+                  <div class="export-group-items" data-export-group-items="ciq-package">
+                    <label><input type="checkbox" data-export-item data-group="ciq-package" value="general-declaration"><span class="export-checkbox"></span><span>总申报单（通用）</span></label>
+                    <label><input type="checkbox" data-export-item data-group="ciq-package" value="domestic-general-declaration"><span class="export-checkbox"></span><span>总申报单（国内）</span></label>
+                    <label><input type="checkbox" data-export-item data-group="ciq-package" value="api"><span class="export-checkbox"></span><span>API</span></label>
+                    <label><input type="checkbox" data-export-item data-group="ciq-package" value="customs-crew-declaration"><span class="export-checkbox"></span><span>海关机组申报单</span></label>
+                    <label><input type="checkbox" data-export-item data-group="ciq-package" value="employee-register"><span class="export-checkbox"></span><span>员工登记表</span></label>
+                    <label><input type="checkbox" data-export-item data-group="ciq-package" value="passenger-register"><span class="export-checkbox"></span><span>旅客登记表</span></label>
+                    <label><input type="checkbox" data-export-item data-group="ciq-package" value="security-check-form"><span class="export-checkbox"></span><span>安检单</span></label>
+                    <label><input type="checkbox" data-export-item data-group="ciq-package" value="carried-items-list"><span class="export-checkbox"></span><span>携带物品清单</span></label>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </section>
+
+          <section class="tab-panel" id="messages">
+            <div class="section-heading"><div><h2>ACARS 报文</h2></div><span>最后接收：08:42Z · 共 4 条</span></div>
+            <div class="card acars-panel">
+              <div class="acars-table-head"><span>接收时间</span><span>类型</span><span>报文内容</span><span>来源</span><span>状态</span><span>操作</span></div>
+              <article class="acars-message"><time>08:42Z</time><strong>POS</strong><div><b>位置报告</b><p>POS N2334.2 E11318.6 · FL410 · M0.86 · HDG 312</p></div><span>B-9308</span><em><i></i>已接收</em><button type="button" data-acars-raw="pos">查看原文</button></article>
+              <article class="acars-message"><time>08:28Z</time><strong>ETA</strong><div><b>预计到达时间更新</b><p>DEST ZGSZ · ETA 1040Z · EFOB 4,860 KG</p></div><span>B-9308</span><em><i></i>已接收</em><button type="button" data-acars-raw="eta">查看原文</button></article>
+              <article class="acars-message"><time>08:15Z</time><strong>WX</strong><div><b>目的地天气回传</b><p>ZGSZ ATIS M · WIND 180/06KT · VIS 8KM · QNH 1008</p></div><span>ACARS</span><em><i></i>已接收</em><button type="button" data-acars-raw="wx">查看原文</button></article>
+              <article class="acars-message"><time>08:03Z</time><strong>FUEL</strong><div><b>燃油状态报告</b><p>FOB 12,400 KG · USED 5,950 KG · REMAINING NOMINAL</p></div><span>B-9308</span><em><i></i>已接收</em><button type="button" data-acars-raw="fuel">查看原文</button></article>
+            </div>
+          </section>
+
+          <section class="tab-panel" id="postflight">
+            <div class="section-heading"><div><h2>航后日志</h2></div><div class="postflight-heading-actions"><button type="button" id="openPostflightLogDialog">新增</button></div></div>
+            <section class="card postflight-log-card">
+              <div class="postflight-log-table" role="table" aria-label="航后日志列表">
+                <div class="postflight-log-table-head" role="row"><span role="columnheader">服务项目</span><span role="columnheader">评价</span><span role="columnheader">描述</span><span role="columnheader">附件</span><span role="columnheader">创建人</span><span role="columnheader">创建时间</span><span role="columnheader">操作</span></div>
+                <div class="postflight-log-list" id="postflightLogList" role="rowgroup" aria-live="polite"></div>
+              </div>
+            </section>
+          </section>
+
+        </div>
+      </div>
+        </div>
+
+        <aside class="rightbar">
+          <section class="side-section announcement-center" aria-labelledby="announcementTitle">
+            <div class="side-title"><h3 id="announcementTitle">航班公告</h3><b class="side-count" id="announcementCount">0</b></div>
+            <div class="announcement-list" id="announcementList"></div>
+            <button class="side-add-button add-announcement" id="addAnnouncement" type="button" aria-controls="announcementForm" aria-expanded="false">新增</button>
+            <form class="announcement-form" id="announcementForm" hidden>
+              <label>公告内容<textarea id="announcementContent" maxlength="120" placeholder="填写需要同步给相关角色的航班变更" required></textarea></label>
+              <label>添加人<input id="announcementAuthor" maxlength="20" value="张园" required /></label>
+              <div><button id="cancelAnnouncement" type="button">取消</button><button class="announcement-submit" type="submit">发布公告</button></div>
+            </form>
+          </section>
+          <section class="side-section todo-center" aria-labelledby="todoCenterTitle">
+            <div class="side-title"><h3 id="todoCenterTitle">待办任务</h3><b class="side-count" id="todoCount">0</b></div>
+            <div id="detailTodoList" tabindex="0" aria-label="待办任务列表，可滚动查看"></div>
+            <button class="side-add-button add-todo-shortcut" id="openTodoComposer" type="button" aria-controls="detailTodoComposer" aria-expanded="false">新增</button>
+            <div class="detail-todo-composer" id="detailTodoComposer" hidden><textarea id="detailTodoInput" rows="2" placeholder="填写待办事项"></textarea><button id="addDetailTodo" type="button">添加待办</button></div>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <dialog class="acars-raw-dialog" id="acarsRawDialog" aria-labelledby="acarsRawTitle">
+    <div class="acars-raw-viewer">
+      <header class="dialog-head"><div><span id="acarsRawType">ACARS MESSAGE</span><h3 id="acarsRawTitle">原始报文</h3></div><button id="closeAcarsRaw" type="button" aria-label="关闭">×</button></header>
+      <dl class="acars-raw-meta"><div><dt>接收时间</dt><dd id="acarsRawReceivedAt">—</dd></div><div><dt>来源</dt><dd id="acarsRawSource">—</dd></div><div><dt>状态</dt><dd id="acarsRawStatus">—</dd></div></dl>
+      <pre id="acarsRawContent" tabindex="0" aria-label="ACARS 原始报文内容"></pre>
+      <div class="dialog-actions"><button id="copyAcarsRaw" type="button">复制原文</button><button class="primary-btn" id="closeAcarsRawFooter" type="button">关闭</button></div>
+    </div>
+  </dialog>
+
+  <dialog class="export-preview-dialog" id="exportPreviewDialog" aria-labelledby="exportPreviewTitle">
+    <div class="export-preview-shell">
+      <header class="dialog-head"><div><span>EXPORT PREVIEW</span><h3 id="exportPreviewTitle">文件预览</h3></div><button id="closeExportPreview" type="button" aria-label="关闭">×</button></header>
+      <div class="export-preview-layout">
+        <aside class="export-preview-sidebar"><header><span>已选文件</span><b id="exportPreviewCount">0</b></header><div id="exportPreviewFileList" role="list"></div></aside>
+        <article class="export-preview-document" id="exportPreviewDocument" aria-live="polite">
+          <header><span>STARJET SOC</span><b id="exportPreviewDocumentCode">OPERATION MATERIAL</b></header>
+          <h2 id="exportPreviewDocumentTitle">文件名称</h2>
+          <p id="exportPreviewDocumentRoute">—</p>
+          <dl><div><dt>航班号</dt><dd>SJ6801</dd></div><div><dt>飞机</dt><dd>B-9308 · G650ER</dd></div><div><dt>任务类型</dt><dd>PAX</dd></div><div><dt>航班日期</dt><dd id="exportPreviewDocumentDate">—</dd></div></dl>
+          <section><h3>文件内容</h3><ul id="exportPreviewDocumentSections"></ul></section>
+          <footer><span>Starjet SOC 航班运行中心</span><time id="exportPreviewGeneratedAt">—</time></footer>
+        </article>
+        <iframe class="export-preview-pdf" id="exportPreviewPdf" title="PDF 文件预览" hidden></iframe>
+      </div>
+      <div class="dialog-actions"><button id="closeExportPreviewFooter" type="button">关闭</button><button class="primary-btn" id="exportPreviewCurrent" type="button">下载当前文件</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="postflightLogDialog" aria-labelledby="postflightLogDialogTitle">
+    <form id="postflightLogForm">
+      <header class="dialog-head"><div><span id="postflightDialogModeLabel">新增记录</span><h3 id="postflightLogDialogTitle">航后日志</h3></div><button id="closePostflightLogDialog" type="button" aria-label="关闭">×</button></header>
+      <div class="postflight-dialog-fields">
+        <div class="postflight-service-field">
+          <label for="postflightServiceProject">服务项目</label>
+          <div class="postflight-service-combobox" id="postflightServiceCombobox">
+            <input id="postflightServiceProject" type="search" role="combobox" aria-autocomplete="list" aria-controls="postflightServiceProjectList" aria-expanded="false" autocomplete="off" placeholder="输入中文或英文搜索" required>
+            <button id="togglePostflightServiceProject" type="button" aria-label="展开服务项目列表" tabindex="-1">⌄</button>
+            <div class="postflight-service-options" id="postflightServiceProjectList" role="listbox" aria-label="服务项目" hidden></div>
+          </div>
+          <small>输入中英文名称可快速定位服务项目</small>
+        </div>
+        <fieldset><legend>评价等级</legend><div class="postflight-rating-options"><label><input type="radio" name="postflightRating" value="good" required><span>好评</span></label><label><input type="radio" name="postflightRating" value="neutral"><span>中评</span></label><label><input type="radio" name="postflightRating" value="bad"><span>差评</span></label></div></fieldset>
+        <label>航后日志描述（可选）<textarea id="postflightLogDescription" maxlength="1200" placeholder="填写航班执行情况、异常、处置结果及需要后续跟进的事项"></textarea><small><b id="postflightLogCharCount">0</b> / 1200</small></label>
+        <div class="postflight-dialog-upload"><label class="attachment-button">上传附件<input id="postflightLogAttachments" type="file" multiple hidden></label><div id="postflightPendingAttachments" aria-live="polite"></div></div>
+      </div>
+      <div class="dialog-actions"><button id="cancelPostflightLog" type="button">取消</button><button class="primary-btn" id="savePostflightLog" type="submit">保存</button></div>
+    </form>
+  </dialog>
+  <dialog id="groundServiceDialog" aria-labelledby="groundServiceDialogTitle">
+    <form id="groundServiceForm">
+      <header class="dialog-head"><div><span id="groundServiceDialogStation">起飞站</span><h3 id="groundServiceDialogTitle">保障信息配置</h3></div><button id="closeGroundService" type="button" aria-label="关闭">×</button></header>
+      <fieldset class="ground-service-fieldset"><legend>接机 / 送机地点</legend><div class="ground-service-form-grid">
+        <label class="wide">地点名称<input id="serviceLocationNameInput" required /></label>
+        <label class="wide">地址<input id="serviceLocationAddressInput" required /></label>
+        <label>联系电话<input id="serviceLocationPhoneInput" placeholder="待补充" /></label>
+        <label>地图链接<input id="serviceLocationMapInput" type="url" placeholder="https://" /></label>
+        <label>经度<input id="serviceLocationLonInput" inputmode="decimal" /></label>
+        <label>纬度<input id="serviceLocationLatInput" inputmode="decimal" /></label>
+        <label class="wide">路线图链接（每行一个）<textarea id="serviceLocationImagesInput" rows="3" placeholder="https://..."></textarea></label>
+      </div></fieldset>
+      <fieldset class="ground-service-fieldset"><legend>行程保障人</legend><div class="guarantor-editor-list" id="serviceGuarantorEditor"></div><button class="add-guarantor-row" id="addGuarantorRow" type="button">+ 添加保障人</button></fieldset>
+      <p class="service-form-note">保存后配置保留在当前浏览器，并同步更新当前航班保障看板。</p>
+      <div class="dialog-actions"><button id="cancelGroundService" type="button">取消</button><button class="primary-btn" type="submit">保存此站配置</button></div>
+    </form>
+  </dialog>
+  <dialog id="mealMenuDialog" aria-labelledby="mealMenuDialogTitle">
+    <form id="mealMenuForm">
+      <header class="dialog-head"><div><span>共 <b id="mealDialogCount">27</b> 道菜</span><h3 id="mealMenuDialogTitle">餐单明细配置</h3></div><button id="closeMealMenu" type="button" aria-label="关闭">×</button></header>
+      <div class="meal-dialog-toolbar"><p>按“餐单 — 分组 — 菜品”维护内容，三级均可展开折叠并拖动排序。</p><button id="addMealMenu" type="button">+ 新增餐单</button></div>
+      <div class="meal-menu-editor" id="mealMenuEditor"></div>
+      <div class="dialog-actions"><button id="cancelMealMenu" type="button">取消</button><button class="primary-btn" type="submit">保存餐单</button></div>
+    </form>
+  </dialog>
+  <dialog id="flightEditDialog" aria-labelledby="flightEditTitle">
+    <form id="flightEditForm">
+      <header class="dialog-head"><h3 id="flightEditTitle">编辑航段</h3><button id="closeFlightEdit" type="button" aria-label="关闭">×</button></header>
+      <div class="flight-edit-grid">
+        <label>起飞机场<input id="editDeparture" maxlength="4" pattern="[A-Za-z]{4}" required /></label>
+        <label>到达机场<input id="editArrival" maxlength="4" pattern="[A-Za-z]{4}" required /></label>
+        <label>起飞日期<input id="editDepartureDate" type="date" required /></label>
+        <label>起飞时间（LT）<input id="editDepartureTime" type="time" required /></label>
+        <label>到达日期<input id="editArrivalDate" type="date" required /></label>
+        <label>到达时间（LT）<input id="editArrivalTime" type="time" required /></label>
+        <label>任务类型<select id="editTaskType" required><option value="CHARTER">包机</option><option value="PAX">载客</option><option value="FERRY">调机</option><option value="TRAINING">训练</option><option value="MAINTENANCE">维修调机</option></select></label>
+        <label>执飞飞机<select id="editAircraft" required><option value="B-8263">B-8263 · G450</option><option value="B-602M">B-602M · Legacy 650</option><option value="B-9308">B-9308 · G450</option><option value="B-9811">B-9811 · G650ER</option><option value="B-801Q">B-801Q · G650ER</option></select></label>
+      </div>
+      <p class="flight-edit-error" id="flightEditError" role="alert" hidden></p>
+      <div class="dialog-actions"><button id="cancelFlightEdit" type="button">取消</button><button class="save-flight-edit" type="submit">保存修改</button></div>
+    </form>
+  </dialog>
+  <dialog class="mel-attachment-dialog" id="melAttachmentDialog" aria-labelledby="melAttachmentTitle">
+    <div class="mel-attachment-viewer">
+      <header class="dialog-head"><div><span id="melAttachmentFile">附件预览 · DR-2026-0198.pdf</span><h3 id="melAttachmentTitle">保留故障单</h3></div><button id="closeMelAttachment" type="button" aria-label="关闭">×</button></header>
+      <article class="deferred-defect-form">
+        <header><b>STARJET AVIATION</b><h2>DEFERRED DEFECT FORM <span>保留故障单</span></h2><small id="melAttachmentControlNo">CTL No. DR-2026-0198</small></header>
+        <div class="defect-form-grid defect-form-meta"><div><span>A/C Reg 飞机号</span><b>B-9308</b></div><div><span>Transferred From 转录自何文件</span><b>TECH LOG 2026-118</b></div><div><span>Station 航站</span><b>ZSPD</b></div><div><span>Issue Date 填写日期</span><b id="melAttachmentIssueDate">2026-08-24</b></div><div><span>Deferred Reference 保留依据</span><b>MEL 21-31-02</b></div></div>
+        <section><span>Fault Report 故障报告</span><p>右侧空调组件控制失效，控制面板故障灯持续点亮。</p></section>
+        <section><span>Defer Reason 保留原因</span><p>等待更换 PACK CONTROL UNIT，航材预计于 2026-08-28 到位。</p></section>
+        <div class="defect-form-grid defect-form-action"><section><span>Action During Defect 保留期间采取的措施</span><p>右侧组件保持关闭；起飞前确认客舱温度满足运行要求；飞行机组完成技术记录签署。</p></section><div><span>Inop Tag 警示标签</span><b>YES</b></div></div>
+        <div class="defect-form-grid defect-form-approval"><div><span>Repair Category 维修周期</span><b>C</b></div><div><span>Due Date 到期日期</span><b class="mel-due" id="melAttachmentDueDate">2026-08-29 23:59 BJ</b></div><div><span>Est. Perform Date 预计完成</span><b>2026-08-28</b></div><div><span>MH Required 所需工时</span><b>3.5 MH</b></div><div><span>Applicant 申请人</span><b>张伟</b></div><div><span>Approval 批准人</span><b>陈晨</b></div><div><span>Crew Notified 机组已通知</span><b>YES</b></div></div>
+        <section><span>Required Parts 需求航材</span><p>PACK CONTROL UNIT · PN 1159SCH404-3 · 数量 1</p></section>
+        <footer><span>Closed By 放行人：—</span><span>Cert. No 执照号：—</span><span>Date 日期：—</span></footer>
+      </article>
+      <div class="dialog-actions"><button id="downloadMelAttachment" type="button">下载附件</button><button class="primary-btn" id="printMelRecord" type="button">打印保留单</button></div>
+    </div>
+  </dialog>
+  <section class="mel-print-sheet" id="melPrintSheet" aria-hidden="true">
+    <header><span>STARJET AVIATION</span><h1>MEL 保留故障单</h1><b>DEFECT DEFERRED RECORD</b></header>
+    <dl><div><dt>航班号</dt><dd>SJ6801</dd></div><div><dt>飞机注册号</dt><dd>B-8263</dd></div><div><dt>航段</dt><dd>RJTT → WSSS</dd></div><div><dt>MEL 条款</dt><dd>21-31-02 · C 类</dd></div><div><dt>故障描述</dt><dd>右侧空调组件控制失效</dd></div><div><dt>当前保留</dt><dd>第二次保留</dd></div><div><dt>保留时间</dt><dd>2026-08-24 16:10 BJ</dd></div><div><dt>到期时间</dt><dd>2026-08-29 23:59 BJ</dd></div></dl>
+    <section><h2>运行限制与放行条件</h2><ol><li>右侧组件保持关闭，左侧空调组件工作正常。</li><li>起飞前确认客舱温度满足运行要求并记录。</li><li>到达站安排机务检查，飞行机组完成技术记录签署。</li></ol></section>
+    <footer><span>发现人：张伟</span><span>批准人：陈晨</span><span>打印时间：<time id="melPrintedAt">—</time></span></footer>
+  </section>
+  <div class="toast" id="toast" role="status">物料已生成</div>
+  <script src="app.js?v=20261009-permit-passenger-1"></script>
+  <script src="formal-bridge.js?v=20261009-fuel-plan-1"></script>
+</body>
+</html>
