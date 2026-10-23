@@ -1,0 +1,1 @@
+var e=[`CNY`,`USD`,`HKD`,`EUR`,`GBP`,`JPY`,`SGD`,`AUD`],t=1e3;export{t as n,e as t};
