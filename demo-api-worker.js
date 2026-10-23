@@ -135,6 +135,30 @@ const genericRecords = [
   { code: 'DEMO-002', createdAt: instant(0, 2), id: 2, name: '演示记录 B', status: 'PENDING' },
   { code: 'DEMO-003', createdAt: instant(1, 3), id: 3, name: '演示记录 C', status: 'COMPLETED' },
 ];
+const allowanceRule = {
+  calculationMode: 'DOMESTIC_OVERSEAS', code: 'JM-ALLOWANCE-01', currentRevisionNo: 1,
+  id: 'alrl_demo00000000000000000001', name: 'Jetmaster 机组驻外补贴规则',
+  publishedRevisionNo: 1, updatedAt: instant(-1, 8), version: 1,
+};
+const allowanceBatch = {
+  createdAt: instant(-1, 8), createdBy: 1, generationMode: 'AUTOMATIC',
+  id: 'albt_demo00000000000000000001', payableAmountCny: '3650.00', pendingCount: 0,
+  periodEnd: businessDate(0), periodStart: businessDate(-7), resultCount: 2,
+  sourceFingerprint: 'jetmaster-demo', status: 'PREVIEW', updatedAt: instant(0, 1), version: 1,
+};
+const allowanceResults = crew.slice(0, 2).map((member, index) => ({
+  adjustmentCny: '0.00', batchId: allowanceBatch.id, blockHours: `${4 + index}.00`,
+  businessDate: businessDate(-index), communicationDays: '1.00', crewCategory: index ? 'CABIN_CREW' : 'PILOT',
+  crewNo: member.employeeNo, crewProfileId: member.id, domesticDays: '0.00', employeeName: member.name,
+  id: `alrs_demo0000000000000000000${index + 1}`, overseasDays: '1.00', payableAmountCny: `${1800 + index * 50}.00`,
+  positioningDays: '0.00', routeSummary: 'ZSPD → VHHH', ruleId: allowanceRule.id,
+  ruleNameSnapshot: allowanceRule.name, ruleRevisionNo: 1, sourceFlightIds: [flights[index + 2].id],
+  sourceFlightNos: [flights[index + 2].flightNo], status: 'PENDING_REVIEW', systemAmountCny: `${1800 + index * 50}.00`, version: 1,
+}));
+const expenseSubjects = [
+  { accountingSubjectCode: '660201', accountingSubjectId: 'acct-travel', accountingSubjectName: '差旅费', accountingSubjectPath: '管理费用 / 差旅费', createdAt: instant(-3, 8), documentTitleKeyword: '住宿', enabled: true, expenseName: '机组住宿费', id: 1, priority: 100, skillCode: 'HOTEL_BILL', skillName: '酒店账单', supplierNameKeyword: '', updatedAt: instant(-1, 8) },
+  { accountingSubjectCode: '640102', accountingSubjectId: 'acct-fuel', accountingSubjectName: '航油费', accountingSubjectPath: '主营业务成本 / 航油费', createdAt: instant(-3, 8), documentTitleKeyword: '航油', enabled: true, expenseName: '航油费用', id: 2, priority: 90, skillCode: 'FUEL_BILL', skillName: '航油账单', supplierNameKeyword: '', updatedAt: instant(-1, 8) },
+];
 const config = self.__JETMASTER_DEMO_CONFIG__ || {};
 const configPage = (key) => page(config[key] || []);
 const configDetail = (key, path) => {
@@ -142,10 +166,60 @@ const configDetail = (key, path) => {
   return (config[key] || []).find((item) => String(item.id) === id) || null;
 };
 
+const collectionItems = (value) =>
+  Array.isArray(value)
+    ? value
+    : value?.items || value?.content || value?.records || [];
+
+const normalizeFlight = (item = flights[2]) => {
+  const departureCode =
+    item.departureAirportIcaoCode || item.departureAirportIcao || 'ZSPD';
+  const arrivalCode =
+    item.arrivalAirportIcaoCode || item.arrivalAirportIcao || 'VHHH';
+  const selectedAircraft = aircraft.find(
+    (candidate) => candidate.registration === item.aircraftRegistration,
+  );
+  return {
+    ...item,
+    aircraftId: item.aircraftId || selectedAircraft?.id || null,
+    aircraftModel:
+      item.aircraftModel || selectedAircraft?.aircraftTypeName || 'G650',
+    arrivalAirportIcaoCode: arrivalCode,
+    arrivalAirportName:
+      item.arrivalAirportName ||
+      airports.find((airport) => airport.icaoCode === arrivalCode)?.name,
+    arrivalAirportTimeZone:
+      item.arrivalAirportTimeZone ||
+      airports.find((airport) => airport.icaoCode === arrivalCode)?.timeZone ||
+      'Asia/Shanghai',
+    departureAirportIcaoCode: departureCode,
+    departureAirportName:
+      item.departureAirportName ||
+      airports.find((airport) => airport.icaoCode === departureCode)?.name,
+    departureAirportTimeZone:
+      item.departureAirportTimeZone ||
+      airports.find((airport) => airport.icaoCode === departureCode)?.timeZone ||
+      'Asia/Shanghai',
+    missionType: item.missionType || 'PAX',
+    operatingCompanyCode: item.operatingCompanyCode || company.code,
+    operatingCompanyId: item.operatingCompanyId || company.id,
+    operatingDate: item.operatingDate || item.flightDate || businessDate(),
+    ownerName: item.ownerName || '系统管理员',
+    scheduledLandingAt:
+      item.scheduledLandingAt || item.arrivalTime || instant(0, 12),
+    scheduledTakeoffAt:
+      item.scheduledTakeoffAt || item.departureTime || instant(0, 9),
+    version: item.version || 1,
+  };
+};
+
 const responseFor = (path) => {
   const cleanPath = path.split('?')[0];
   const liveSnapshot = self.__JETMASTER_LIVE_SNAPSHOT__ || {};
-  if (Object.prototype.hasOwnProperty.call(liveSnapshot, cleanPath)) {
+  if (
+    Object.prototype.hasOwnProperty.call(liveSnapshot, cleanPath) &&
+    !cleanPath.startsWith('/crewops/allowances')
+  ) {
     return liveSnapshot[cleanPath];
   }
   if (cleanPath === '/operations/workbench') return {
@@ -160,12 +234,50 @@ const responseFor = (path) => {
   if (cleanPath.includes('/operations/flights/') && cleanPath.endsWith('/todos')) return page(tasks);
   if (cleanPath.includes('/operations/flights/') && cleanPath.endsWith('/aggregate')) {
     const flightId = cleanPath.split('/').at(-2);
+    const liveFlights = collectionItems(liveSnapshot['/operations/flights']);
+    const selectedFlight =
+      liveFlights.find((item) => String(item.id) === flightId) ||
+      flights.find((item) => String(item.id) === flightId) ||
+      liveFlights[0] ||
+      flights[2];
     return {
-      availableActions: ['UPDATE_PLAN', 'WRITE_TODOS'],
-      flight: flights.find((item) => String(item.id) === flightId) || flights[2],
+      availableActions: [
+        'CANCEL',
+        'CONFIRM',
+        'HOLD',
+        'REPLACE',
+        'RESUME',
+        'UPDATE_PLAN',
+        'WRITE_TODOS',
+      ],
+      flight: normalizeFlight(selectedFlight),
       todos: tasks,
       todosVisible: true,
     };
+  }
+  if (
+    cleanPath.includes('/operations/flights/') &&
+    cleanPath.endsWith('/detail-resources')
+  ) {
+    return {
+      approvalChanges: [],
+      availableActions: ['WRITE'],
+      melDeferrals: [],
+      permits: [],
+    };
+  }
+  if (cleanPath.includes('/operations/flights/') && cleanPath.endsWith('/readiness')) {
+    const selectedFlight = normalizeFlight(collectionItems(liveSnapshot['/operations/flights'])[0] || flights[2]);
+    return { blockers: [], canExecute: true, canSign: true, dimensions: [{ code: 'FLIGHT_PLAN', mandatoryForExecution: true, mandatoryForSigning: true, message: '航班计划已确认', state: 'READY' }], factVersion: 'demo-1', flightId: selectedFlight.id, flightNo: selectedFlight.flightNo, generatedAt: instant(0, 1), overallStatus: 'READY_FOR_RELEASE', release: { status: 'DRAFT' }, sourceUpdatedAt: instant(0, 1), warnings: [] };
+  }
+  if (cleanPath.includes('/operations/flights/') && cleanPath.endsWith('/release')) {
+    const selectedFlight = normalizeFlight(collectionItems(liveSnapshot['/operations/flights'])[0] || flights[2]);
+    const readiness = responseFor(`/operations/flights/${selectedFlight.id}/readiness`);
+    return { currentRevision: { checks: [{ checkCode: 'FLIGHT_PLAN', checkName: '飞行计划', evidence: [], id: 1, mandatory: true, notApplicableAllowed: false, reason: null, remarks: '演示数据已核对', revisionId: 'flrr_demo', sortOrder: 1, status: 'PASSED', version: 1 }], conditionFingerprint: 'demo', createdAt: instant(-1, 8), createdBy: 1, createdByName: '系统管理员', id: 'flrr_demo', releaseId: 'flre_demo', revisionNo: 1, rulesetVersion: 'demo-1', signatureHistory: [], snapshotJson: '{}', sourceFlightVersion: selectedFlight.version, status: 'DRAFT', updatedAt: instant(0, 1), version: 1 }, flight: { aircraftModel: selectedFlight.aircraftModel, aircraftRegistration: selectedFlight.aircraftRegistration, arrivalAirportIcaoCode: selectedFlight.arrivalAirportIcaoCode, arrivalAirportTimeZone: selectedFlight.arrivalAirportTimeZone, departureAirportIcaoCode: selectedFlight.departureAirportIcaoCode, departureAirportTimeZone: selectedFlight.departureAirportTimeZone, flightNo: selectedFlight.flightNo, operatingDate: selectedFlight.operatingDate, scheduledLandingAt: selectedFlight.scheduledLandingAt, scheduledTakeoffAt: selectedFlight.scheduledTakeoffAt, status: selectedFlight.status, version: selectedFlight.version }, flightId: selectedFlight.id, id: 'flre_demo', readiness, version: 1 };
+  }
+  if (cleanPath.includes('/operations/flights/') && cleanPath.endsWith('/closeout')) {
+    const selectedFlight = normalizeFlight(collectionItems(liveSnapshot['/operations/flights'])[0] || flights[2]);
+    return { availableActions: ['UPDATE_ITEM', 'OPEN_ISSUE'], blockers: [], closeout: { createdAt: instant(-1, 8), flightId: selectedFlight.id, id: 'flco_demo', status: 'OPEN', templateCode: 'JM-CLOSEOUT', templateId: 'demo-template', templateName: 'Jetmaster 航班运行收尾', templateRevisionNo: 1, updatedAt: instant(0, 1), version: 1 }, flight: { flightNo: selectedFlight.flightNo, id: selectedFlight.id, status: selectedFlight.status, version: selectedFlight.version }, history: [], issues: [], items: [{ closeoutId: 'flco_demo', code: 'LOG', id: 1, mandatory: true, name: '航后运行记录', sequenceNo: 1, status: 'PENDING', type: 'TEXT', updatedAt: instant(0, 1), version: 1 }], serviceEvaluationItems: [] };
   }
   if (cleanPath.startsWith('/operations/trips')) return page(trips);
   if (cleanPath.startsWith('/operations/flight-preparation-summaries')) return page(serviceRows);
@@ -173,6 +285,28 @@ const responseFor = (path) => {
   if (cleanPath.startsWith('/operations/flight-releases')) return page(releases);
   if (cleanPath === '/crewops/roster') return { events: crew.map((member, index) => ({ endTime: instant(index % 2, 10), id: index + 1, resourceId: member.id, startTime: instant(index % 2, 2), title: flights[index + 2]?.flightNo || '备勤' })), flights };
   if (cleanPath.includes('/crewops/employee-options') || cleanPath.includes('/crewops/profiles')) return page(crew);
+  if (cleanPath === '/crewops/allowances/batches') return [allowanceBatch];
+  if (cleanPath === `/crewops/allowances/batches/${allowanceBatch.id}`) return { batch: allowanceBatch, results: allowanceResults };
+  if (cleanPath === '/crewops/allowances/bindings') return [];
+  if (cleanPath === '/crewops/allowances/flight-facts') return flights.slice(2, 5).map((flight) => ({
+    actualArrivalAirportIcaoCode: flight.arrivalAirportIcao,
+    actualDepartureAirportIcaoCode: flight.departureAirportIcao,
+    engineShutdownAt: flight.arrivalTime,
+    flightId: flight.id,
+    flightNo: flight.flightNo,
+    operatingDate: flight.flightDate,
+    plannedArrivalAirportIcaoCode: flight.arrivalAirportIcao,
+    plannedDepartureAirportIcaoCode: flight.departureAirportIcao,
+    positioning: false,
+    source: 'MANUAL',
+    version: 1,
+  }));
+  if (cleanPath === '/crewops/allowances/rules') return [allowanceRule];
+  if (cleanPath === `/crewops/allowances/rules/${allowanceRule.id}`) return {
+    revision: { communicationEnabled: true, createdAt: instant(-7, 8), createdBy: 1, departureLeadMinutes: 180, halfDayThresholdMinute: 720, includePositioning: true, note: 'Jetmaster 演示规则', returnCutoffMinute: 120, returnCutoffScope: 'RULE1_ONLY', returnPostMinutes: 60, revisionNo: 1, revisionReason: '演示数据', ruleId: allowanceRule.id, status: 'PUBLISHED', validFrom: businessDate(-30), validTo: null },
+    rule: allowanceRule,
+    standards: [{ communicationAmount: '100.00', crewCategory: 'PILOT', currency: 'CNY', fullDayAmount: '1800.00', halfDayAmount: '900.00', hourlyAmount: '100.00', id: 1, regionCode: 'OVERSEAS', revisionNo: 1, ruleId: allowanceRule.id }],
+  };
   if (cleanPath.startsWith('/crewops')) return page(crew.map((item, index) => ({ ...item, allowanceAmount: 800 + index * 150, businessDate: businessDate(index - 1) })));
   if (cleanPath === '/aviation/aircraft' || cleanPath.endsWith('/aircraft/options')) return configPage('aircraft');
   if (/^\/aviation\/aircraft\/[^/]+$/.test(cleanPath)) return configDetail('aircraft', cleanPath);
@@ -192,9 +326,9 @@ const responseFor = (path) => {
   if (cleanPath === '/master-data/units') return configPage('units');
   if (cleanPath === '/master-data/warehouses') return configPage('warehouses');
   if (cleanPath === '/master-data/cost-item-types') return config.costItemTypes || [];
+  if (cleanPath === '/master-data/expense-subjects') return expenseSubjects;
   if (cleanPath === '/dictionaries/types') return config.dictionaryTypes || [];
   if (cleanPath === '/finance/flight-bill-templates') return config.billTemplates || [];
-  if (cleanPath === '/crewops/allowances/rules') return config.allowanceRules || [];
   if (cleanPath === '/notifications/summary') return { total: notifications.length, unread: 1 };
   if (cleanPath.startsWith('/notifications')) return page(notifications);
   if (cleanPath.startsWith('/messaging')) return page(notifications);
@@ -202,7 +336,32 @@ const responseFor = (path) => {
   if (cleanPath.includes('/workflow/tasks')) return page(tasks);
   if (cleanPath.startsWith('/workflow')) return page(genericRecords);
   if (cleanPath === '/finance/dashboard') return { accountsPayable: 51400, accountsReceivable: 82000, currency: 'CNY', pendingApprovals: 1, recentPayments: payments };
+  if (cleanPath.includes('/finance/flights/') && cleanPath.endsWith('/bill')) {
+    const selectedFlight = normalizeFlight(collectionItems(liveSnapshot['/operations/flights'])[0] || flights[2]);
+    return { availableActions: ['UPDATE_ESTIMATE', 'UPDATE_ACTUAL'], bill: { createdAt: instant(-1, 8), flightId: selectedFlight.id, flightNo: selectedFlight.flightNo, id: 'flbl_demo', routeRuleCode: 'JM-DEMO', routeRuleVersion: 1, routeScope: 'DOMESTIC', status: 'DRAFT', templateId: 'fbtp_demo', templateName: 'Jetmaster 标准航班账单', templateRevisionNo: 1, updatedAt: instant(0, 1), version: 1 }, flightItems: [{ code: 'FUEL', currency: 'CNY', documentCount: 0, estimatedAmount: 26000, id: 'flbi_demo', name: '航油费用', ownerBillId: 'flbl_demo', ownerType: 'FLIGHT', required: true, status: 'ESTIMATED', updatedAt: instant(0, 1), version: 1 }], history: [], requiredComplete: true, summaries: [{ actualAmount: 0, currency: 'CNY', estimatedAmount: 26000, variance: -26000 }], tripItems: [] };
+  }
   if (cleanPath.includes('/finance/payment-applications')) return page(payments);
+  if (cleanPath === '/finance/cost-statistics/reference-data') return {
+    currencies: ['CNY', 'USD'],
+    dimensions: ['COMPANY', 'CUSTOMER', 'AIRCRAFT', 'TRIP', 'FLIGHT', 'STATION', 'ROUTE'],
+    operatingCompanies: [{ ...company, enabled: true }],
+    periods: [businessDate().slice(0, 7), businessDate(-30).slice(0, 7)],
+  };
+  if (cleanPath === '/finance/cost-statistics/summary') return {
+    dimension: 'FLIGHT',
+    period: businessDate().slice(0, 7),
+    rows: flights.slice(2, 5).map((flight, index) => ({ cost: `${18600 + index * 4200}.00`, currency: 'CNY', key: String(flight.id), label: `${flight.flightNo} · ${flight.departureAirportIcao}-${flight.arrivalAirportIcao}`, recordCount: 3 + index })),
+    unallocated: [{ cost: '3200.00', currency: 'CNY', recordCount: 1 }],
+  };
+  if (cleanPath === '/finance/cost-statistics/details') return { items: [], page: 1, size: 20, total: 0 };
+  if (cleanPath === '/finance/entry-cost-subjects') return [
+    { hierarchyDepth: 2, id: 'acct-travel', name: '差旅费', parentId: null, path: '管理费用 / 差旅费', subjectLevel1: '管理费用', subjectLevel2: '差旅费', subjectLevel3: null },
+    { hierarchyDepth: 2, id: 'acct-fuel', name: '航油费', parentId: null, path: '主营业务成本 / 航油费', subjectLevel1: '主营业务成本', subjectLevel2: '航油费', subjectLevel3: null },
+  ];
+  if (cleanPath === '/finance/entry-recognition-skills') return [
+    { businessType: 'HOTEL', code: 'HOTEL_BILL', currentVersion: 1, displayConfig: {}, id: 'skill-hotel', name: '酒店账单' },
+    { businessType: 'FUEL', code: 'FUEL_BILL', currentVersion: 1, displayConfig: {}, id: 'skill-fuel', name: '航油账单' },
+  ];
   if (cleanPath.startsWith('/finance')) return page(genericRecords.map((item, index) => ({ ...item, amount: 12000 + index * 8600, currency: 'CNY' })));
   if (cleanPath.startsWith('/suppliers')) return configPage('suppliers');
   if (cleanPath.startsWith('/files')) return page([{ fileName: 'JM2316-放行资料.pdf', id: 1, size: 245760, status: 'AVAILABLE' }, { fileName: 'B1234-保险凭证.pdf', id: 2, size: 182400, status: 'AVAILABLE' }]);
@@ -213,13 +372,24 @@ const responseFor = (path) => {
 };
 
 self.__JETMASTER_DEMO_RESPONSE_FOR__ = responseFor;
+const writeResponseFor = (path, payload) => {
+  const cleanPath = path.split('?')[0];
+  if (cleanPath === '/crewops/allowances/batches/automatic') return [allowanceBatch];
+  if (cleanPath.includes('/crewops/allowances/rules/')) return responseFor(`/crewops/allowances/rules/${allowanceRule.id}`);
+  if (cleanPath.startsWith('/master-data/expense-subjects')) return { ...expenseSubjects[0], ...payload, id: payload.id || Date.now() };
+  return { ...payload, id: payload.id || `demo-${Date.now()}`, success: true, traceId: 'demo-local-write' };
+};
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (!url.pathname.includes(API_MARKER)) return;
   event.respondWith((async () => {
-    if (event.request.method !== 'GET') return ok({ success: true, traceId: 'demo-write-disabled' });
+    if (event.request.method !== 'GET') {
+      const payload = await event.request.clone().json().catch(() => ({}));
+      const start = url.pathname.indexOf(API_MARKER) + API_MARKER.length - 1;
+      return ok(writeResponseFor(`${url.pathname.slice(start)}${url.search}`, payload));
+    }
     const start = url.pathname.indexOf(API_MARKER) + API_MARKER.length - 1;
     return ok(responseFor(`${url.pathname.slice(start)}${url.search}`));
   })());
