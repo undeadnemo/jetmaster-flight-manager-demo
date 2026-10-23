@@ -158,7 +158,15 @@ const responseFor = (path) => {
   if (cleanPath === '/operations/flights') return page(flights);
   if (/^\/operations\/flights\/\d+$/.test(cleanPath)) return flights.find((item) => cleanPath.endsWith(String(item.id))) || flights[0];
   if (cleanPath.includes('/operations/flights/') && cleanPath.endsWith('/todos')) return page(tasks);
-  if (cleanPath.includes('/operations/flights/') && cleanPath.endsWith('/aggregate')) return { flight: flights[2], serviceProgress: serviceRows[0], todos: tasks };
+  if (cleanPath.includes('/operations/flights/') && cleanPath.endsWith('/aggregate')) {
+    const flightId = cleanPath.split('/').at(-2);
+    return {
+      availableActions: ['UPDATE_PLAN', 'WRITE_TODOS'],
+      flight: flights.find((item) => String(item.id) === flightId) || flights[2],
+      todos: tasks,
+      todosVisible: true,
+    };
+  }
   if (cleanPath.startsWith('/operations/trips')) return page(trips);
   if (cleanPath.startsWith('/operations/flight-preparation-summaries')) return page(serviceRows);
   if (cleanPath.startsWith('/operations/service-progress')) return page(serviceRows);
