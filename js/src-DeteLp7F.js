@@ -1,1 +1,0 @@
-import{En as e,Wr as t,Zn as n}from"../jse/index-index-DST4SD6p.js";import{t as r}from"./_plugin-vue_export-helper-BmQ3P5f4.js";var i={};function a(t,r){return n(),e(`div`)}var o=r(i,[[`render`,a]]),s=t({IFrameView:()=>o});export{s as t};

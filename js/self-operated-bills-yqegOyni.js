@@ -1,0 +1,1 @@
+import{$t as e,Mn as t,Zn as n,wn as r}from"../jse/index-index-G1o--zdt.js";import{t as i}from"./ChargeRecordWorkspace-CwV1nvDe.js";var a=t(e(e({},{name:`FinanceSelfOperatedBills`}),{},{__name:`index`,setup(e){return(e,t)=>(n(),r(i,{"record-type":`SELF_OPERATED_BILL`}))}}));export{a as default};

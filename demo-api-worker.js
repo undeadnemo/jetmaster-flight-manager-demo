@@ -1,3 +1,5 @@
+importScripts('./demo-config-snapshot.js');
+
 const API_MARKER = '/jetmaster-flight-manager-demo/api/';
 const DAY = 86_400_000;
 const pad = (value) => String(value).padStart(2, '0');
@@ -132,6 +134,12 @@ const genericRecords = [
   { code: 'DEMO-002', createdAt: instant(0, 2), id: 2, name: '演示记录 B', status: 'PENDING' },
   { code: 'DEMO-003', createdAt: instant(1, 3), id: 3, name: '演示记录 C', status: 'COMPLETED' },
 ];
+const config = self.__JETMASTER_DEMO_CONFIG__ || {};
+const configPage = (key) => page(config[key] || []);
+const configDetail = (key, path) => {
+  const id = decodeURIComponent(path.split('/').filter(Boolean).at(-1) || '');
+  return (config[key] || []).find((item) => String(item.id) === id) || null;
+};
 
 const responseFor = (path) => {
   const cleanPath = path.split('?')[0];
@@ -153,12 +161,27 @@ const responseFor = (path) => {
   if (cleanPath === '/crewops/roster') return { events: crew.map((member, index) => ({ endTime: instant(index % 2, 10), id: index + 1, resourceId: member.id, startTime: instant(index % 2, 2), title: flights[index + 2]?.flightNo || '备勤' })), flights };
   if (cleanPath.includes('/crewops/employee-options') || cleanPath.includes('/crewops/profiles')) return page(crew);
   if (cleanPath.startsWith('/crewops')) return page(crew.map((item, index) => ({ ...item, allowanceAmount: 800 + index * 150, businessDate: businessDate(index - 1) })));
-  if (cleanPath === '/aviation/aircraft' || cleanPath.endsWith('/aircraft/options')) return page(aircraft);
-  if (cleanPath.includes('/aviation/aircraft-types')) return page(aircraftTypes);
-  if (cleanPath.includes('/aviation/airports')) return page(airports);
-  if (cleanPath.includes('/aviation/operating-companies')) return page([company]);
-  if (cleanPath.includes('/aviation/countries')) return page([{ code: 'CN', id: 1, name: '中国' }, { code: 'SG', id: 2, name: '新加坡' }]);
-  if (cleanPath.includes('/aviation/handling-agents')) return page(suppliers.filter((item) => item.category === '地面代理'));
+  if (cleanPath === '/aviation/aircraft' || cleanPath.endsWith('/aircraft/options')) return configPage('aircraft');
+  if (/^\/aviation\/aircraft\/[^/]+$/.test(cleanPath)) return configDetail('aircraft', cleanPath);
+  if (cleanPath === '/aviation/aircraft-types') return configPage('aircraftTypes');
+  if (/^\/aviation\/aircraft-types\/[^/]+$/.test(cleanPath)) return configDetail('aircraftTypes', cleanPath);
+  if (cleanPath === '/aviation/airports' || cleanPath === '/aviation/airports/suggestions') return configPage('airports');
+  if (/^\/aviation\/airports\/[^/]+$/.test(cleanPath)) return configDetail('airports', cleanPath);
+  if (cleanPath === '/aviation/operating-companies') return configPage('operatingCompanies');
+  if (/^\/aviation\/operating-companies\/[^/]+$/.test(cleanPath)) return configDetail('operatingCompanies', cleanPath);
+  if (cleanPath === '/aviation/countries') return configPage('countries');
+  if (/^\/aviation\/countries\/[^/]+$/.test(cleanPath)) return configDetail('countries', cleanPath);
+  if (cleanPath === '/aviation/handling-agents') return configPage('handlingAgents');
+  if (/^\/aviation\/handling-agents\/[^/]+$/.test(cleanPath)) return configDetail('handlingAgents', cleanPath);
+  if (cleanPath === '/master-data/customers') return configPage('customers');
+  if (cleanPath === '/master-data/materials') return configPage('materials');
+  if (cleanPath === '/master-data/suppliers') return configPage('suppliers');
+  if (cleanPath === '/master-data/units') return configPage('units');
+  if (cleanPath === '/master-data/warehouses') return configPage('warehouses');
+  if (cleanPath === '/master-data/cost-item-types') return config.costItemTypes || [];
+  if (cleanPath === '/dictionaries/types') return config.dictionaryTypes || [];
+  if (cleanPath === '/finance/flight-bill-templates') return config.billTemplates || [];
+  if (cleanPath === '/crewops/allowances/rules') return config.allowanceRules || [];
   if (cleanPath === '/notifications/summary') return { total: notifications.length, unread: 1 };
   if (cleanPath.startsWith('/notifications')) return page(notifications);
   if (cleanPath.startsWith('/messaging')) return page(notifications);
@@ -168,7 +191,7 @@ const responseFor = (path) => {
   if (cleanPath === '/finance/dashboard') return { accountsPayable: 51400, accountsReceivable: 82000, currency: 'CNY', pendingApprovals: 1, recentPayments: payments };
   if (cleanPath.includes('/finance/payment-applications')) return page(payments);
   if (cleanPath.startsWith('/finance')) return page(genericRecords.map((item, index) => ({ ...item, amount: 12000 + index * 8600, currency: 'CNY' })));
-  if (cleanPath.startsWith('/suppliers')) return page(suppliers);
+  if (cleanPath.startsWith('/suppliers')) return configPage('suppliers');
   if (cleanPath.startsWith('/files')) return page([{ fileName: 'JM2316-放行资料.pdf', id: 1, size: 245760, status: 'AVAILABLE' }, { fileName: 'B1234-保险凭证.pdf', id: 2, size: 182400, status: 'AVAILABLE' }]);
   if (cleanPath.includes('/options') || cleanPath.includes('/suggestions')) return page(genericRecords);
   if (/\/(summary|statistics|overview|dashboard)$/.test(cleanPath)) return { items: genericRecords, total: genericRecords.length };

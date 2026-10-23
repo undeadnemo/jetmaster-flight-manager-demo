@@ -1,1 +1,0 @@
-import{Rn as e,_n as t}from"../jse/index-index-DST4SD6p.js";function n(n){return e(n)&&n.type===t}export{n as t};

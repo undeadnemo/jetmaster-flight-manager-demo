@@ -1,0 +1,1 @@
+import{Wr as e}from"../jse/index-index-G1o--zdt.js";import{r as t,t as n}from"./Group-5365H2y5.js";var r=e({CheckboxGroup:()=>n,default:()=>i});t.install=e=>{e.component(t.name,t),e.component(n.name,n)};var i=t;export{r as n,i as t};
