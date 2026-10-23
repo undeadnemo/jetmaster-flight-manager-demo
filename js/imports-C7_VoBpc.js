@@ -1,1 +1,0 @@
-import{An as e,Mn as t,Nr as n,Zn as r,pr as i,wn as a}from"../jse/index-index-G1o--zdt.js";import{t as o}from"./page-C73CRhm2.js";import{r as s}from"./soc-Dieurwvn.js";var c=t({__name:`index`,setup(t){return(t,c)=>(r(),a(n(o),{title:`主数据导入`},{default:i(()=>[e(n(s))]),_:1}))}});export{c as default};

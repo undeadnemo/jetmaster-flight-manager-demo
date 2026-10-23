@@ -1,4 +1,5 @@
 importScripts('./demo-config-snapshot.js');
+importScripts('./demo-live-snapshot.js');
 
 const API_MARKER = '/jetmaster-flight-manager-demo/api/';
 const DAY = 86_400_000;
@@ -143,6 +144,10 @@ const configDetail = (key, path) => {
 
 const responseFor = (path) => {
   const cleanPath = path.split('?')[0];
+  const liveSnapshot = self.__JETMASTER_LIVE_SNAPSHOT__ || {};
+  if (Object.prototype.hasOwnProperty.call(liveSnapshot, cleanPath)) {
+    return liveSnapshot[cleanPath];
+  }
   if (cleanPath === '/operations/workbench') return {
     flights: flights.slice(2, 6), generatedAt: new Date().toISOString(), myTodos: tasks,
     notifications, operatingDate: businessDate(), readiness: serviceRows,

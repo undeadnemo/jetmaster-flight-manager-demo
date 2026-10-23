@@ -1,1 +1,0 @@
-var e=`/auth/login`,t=[{label:`Simplified Chinese`,value:`zh-CN`},{label:`English`,value:`en-US`}];export{t as n,e as t};
