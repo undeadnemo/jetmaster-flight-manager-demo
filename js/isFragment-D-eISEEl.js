@@ -1,0 +1,1 @@
+import{Rn as e,_n as t}from"../jse/index-index-Bw3gnS_c.js";function n(n){return e(n)&&n.type===t}export{n as t};

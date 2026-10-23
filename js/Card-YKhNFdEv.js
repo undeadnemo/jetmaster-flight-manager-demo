@@ -1,0 +1,1 @@
+import{En as e,Mn as t,Nr as n,Qt as r,Rr as i,Zn as a,er as o}from"../jse/index-index-Bw3gnS_c.js";var s=t({__name:`Card`,props:{class:{}},setup(t){let s=t;return(t,c)=>(a(),e(`div`,{class:i(n(r)(`border-border bg-card text-card-foreground rounded-xl border`,s.class))},[o(t.$slots,`default`)],2))}});export{s as t};

@@ -1,0 +1,1 @@
+import{$t as e,Mn as t,Zn as n,wn as r}from"../jse/index-index-Bw3gnS_c.js";import{t as i}from"./order-management-BfZeLWZ4.js";var a=t(e(e({},{name:`SalesHandoffQueue`}),{},{__name:`index`,setup(e){return(e,t)=>(n(),r(i,{"handoff-mode":``}))}}));export{a as default};
