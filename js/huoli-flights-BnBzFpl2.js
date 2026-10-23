@@ -1,1 +1,0 @@
-import{r as e}from"./request-DacAOutn.js";var t=`/internal-tools/huoli-flights`,n={preview:()=>e.post(`${t}/preview`),getBatch:n=>e.get(`${t}/${encodeURIComponent(n)}`),commit:(n,r,i)=>e.post(`${t}/${encodeURIComponent(n)}/commit`,{rowNumbers:i},{headers:{"Idempotency-Key":r}})};export{n as t};
