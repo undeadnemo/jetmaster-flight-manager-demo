@@ -1,1 +1,0 @@
-import{$t as e}from"../jse/index-index-Bw3gnS_c.js";function t(t,n){let r=e({},t);return n.forEach(e=>{delete r[e]}),r}export{t};

@@ -1,0 +1,1 @@
+import{Sn as e}from"../jse/index-index-DST4SD6p.js";import{C as t}from"./useMergeSemantic-CN5CRJAW.js";function n(n){let[,,,,r]=t();return e(()=>r!=null&&r.value?`${n.value}-css-var`:``)}var r=n;export{r as t};
