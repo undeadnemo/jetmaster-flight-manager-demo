@@ -213,6 +213,159 @@ const normalizeFlight = (item = flights[2]) => {
   };
 };
 
+const demoFlights = () => {
+  const liveFlights = collectionItems(
+    (self.__JETMASTER_LIVE_SNAPSHOT__ || {})['/operations/flights'],
+  );
+  return liveFlights.length ? liveFlights : flights;
+};
+
+const requestedFlight = (cleanPath) => {
+  const flightId = decodeURIComponent(cleanPath.split('/').at(-2) || '');
+  const candidates = demoFlights();
+  return normalizeFlight(
+    candidates.find((item) => String(item.id) === flightId) || candidates[0],
+  );
+};
+
+const requirementForFlight = (flight) => {
+  const index = Math.max(
+    0,
+    demoFlights().findIndex((item) => String(item.id) === String(flight.id)),
+  );
+  const passengerProfiles = [
+    { adult: 6, child: 1, infant: 0 },
+    { adult: 4, child: 0, infant: 0 },
+    { adult: 8, child: 2, infant: 1 },
+    { adult: 5, child: 1, infant: 1 },
+    { adult: 7, child: 0, infant: 0 },
+    { adult: 3, child: 1, infant: 0 },
+  ];
+  const profile = passengerProfiles[index % passengerProfiles.length];
+  const passengerCount = profile.adult + profile.child + profile.infant;
+  const routeSummary = `${flight.departureAirportIcaoCode} → ${flight.arrivalAirportIcaoCode}`;
+  return {
+    adultCount: profile.adult,
+    childCount: profile.child,
+    flightId: flight.id,
+    flightNo: flight.flightNo,
+    id: `rqsm_demo_${index + 1}`,
+    infantCount: profile.infant,
+    items: [
+      {
+        applicability: 'IN_FLIGHT',
+        category: 'SPECIAL_MEAL',
+        mandatory: true,
+        quantity: passengerCount,
+        summary: `按 ${passengerCount} 人准备餐食与饮品`,
+      },
+      {
+        applicability: 'DEPARTURE',
+        category: 'GROUND_TRANSPORT',
+        mandatory: true,
+        quantity: 1,
+        summary: '安排一辆商务接送车',
+      },
+      {
+        applicability: 'BOTH',
+        category: 'VIP',
+        mandatory: false,
+        quantity: 1,
+        summary: '安排要客快速通道与礼宾引导',
+      },
+    ],
+    orderId: `ord_demo_${index + 1}`,
+    orderNo: `SO-${businessDate(index - 2).replaceAll('-', '')}-${pad(index + 1)}`,
+    passengerCount,
+    requirementVersionNo: 1,
+    routeSummary,
+    status: index % 3 === 2 ? 'ACKNOWLEDGED' : 'PENDING',
+    updatedAt: instant(0, 1, index * 5),
+    version: 1,
+  };
+};
+
+const billForFlight = (flight) => {
+  const index = Math.max(
+    0,
+    demoFlights().findIndex((item) => String(item.id) === String(flight.id)),
+  );
+  const billId = `flbl_demo_${index + 1}`;
+  const base = 18_000 + index * 2_400;
+  const definitions = [
+    ['FUEL', '航油费用', base + 8_000, base + 7_650, true],
+    ['HANDLING', '地面保障服务费', 8_600 + index * 500, 8_450 + index * 520, true],
+    ['CATERING', '航空配餐费', 3_200 + index * 260, 3_080 + index * 240, true],
+    ['AIRPORT', '机场起降及停场费', 12_500 + index * 700, 12_380 + index * 680, true],
+    ['CREW_HOTEL', '机组住宿费', 4_800 + index * 300, index % 2 ? 4_650 + index * 280 : 0, false],
+  ];
+  const flightItems = definitions.map(
+    ([code, name, estimatedAmount, actualAmount, required], itemIndex) => ({
+      actualAmount,
+      code,
+      currency: 'CNY',
+      documentCount: actualAmount ? 1 : 0,
+      estimatedAmount,
+      id: `flbi_demo_${index + 1}_${itemIndex + 1}`,
+      name,
+      ownerBillId: billId,
+      ownerType: 'FLIGHT',
+      required,
+      status: actualAmount ? 'ACTUAL_RECORDED' : 'ESTIMATED',
+      updatedAt: instant(0, 1, itemIndex * 3),
+      version: 1,
+    }),
+  );
+  const estimatedAmount = flightItems.reduce(
+    (total, item) => total + item.estimatedAmount,
+    0,
+  );
+  const actualAmount = flightItems.reduce(
+    (total, item) => total + item.actualAmount,
+    0,
+  );
+  return {
+    availableActions: ['UPDATE_ESTIMATE', 'UPDATE_ACTUAL'],
+    bill: {
+      createdAt: instant(-1, 8),
+      flightId: flight.id,
+      flightNo: flight.flightNo,
+      id: billId,
+      routeRuleCode: 'JM-DEMO',
+      routeRuleVersion: 1,
+      routeScope: 'DOMESTIC',
+      status: actualAmount === estimatedAmount ? 'RECONCILED' : 'DRAFT',
+      templateId: 'fbtp_demo',
+      templateName: 'Jetmaster 标准航班账单',
+      templateRevisionNo: 1,
+      updatedAt: instant(0, 1),
+      version: 1,
+    },
+    flightItems,
+    history: [
+      {
+        action: 'INITIALIZED',
+        createdAt: instant(-1, 8),
+        createdByName: '系统管理员',
+        id: `flbh_demo_${index + 1}`,
+        remarks: '按航班账单模板生成演示费用项',
+      },
+    ],
+    requiredComplete: flightItems
+      .filter((item) => item.required)
+      .every((item) => item.actualAmount > 0),
+    summaries: [
+      {
+        actualAmount,
+        currency: 'CNY',
+        estimatedAmount,
+        variance: actualAmount - estimatedAmount,
+      },
+    ],
+    tripItems: [],
+  };
+};
+
 const responseFor = (path) => {
   const cleanPath = path.split('?')[0];
   const liveSnapshot = self.__JETMASTER_LIVE_SNAPSHOT__ || {};
@@ -232,6 +385,9 @@ const responseFor = (path) => {
   if (cleanPath === '/operations/flights') return page(flights);
   if (/^\/operations\/flights\/\d+$/.test(cleanPath)) return flights.find((item) => cleanPath.endsWith(String(item.id))) || flights[0];
   if (cleanPath.includes('/operations/flights/') && cleanPath.endsWith('/todos')) return page(tasks);
+  if (cleanPath.includes('/operations/flights/') && cleanPath.endsWith('/requirement-summary')) {
+    return requirementForFlight(requestedFlight(cleanPath));
+  }
   if (cleanPath.includes('/operations/flights/') && cleanPath.endsWith('/aggregate')) {
     const flightId = cleanPath.split('/').at(-2);
     const liveFlights = collectionItems(liveSnapshot['/operations/flights']);
@@ -337,8 +493,7 @@ const responseFor = (path) => {
   if (cleanPath.startsWith('/workflow')) return page(genericRecords);
   if (cleanPath === '/finance/dashboard') return { accountsPayable: 51400, accountsReceivable: 82000, currency: 'CNY', pendingApprovals: 1, recentPayments: payments };
   if (cleanPath.includes('/finance/flights/') && cleanPath.endsWith('/bill')) {
-    const selectedFlight = normalizeFlight(collectionItems(liveSnapshot['/operations/flights'])[0] || flights[2]);
-    return { availableActions: ['UPDATE_ESTIMATE', 'UPDATE_ACTUAL'], bill: { createdAt: instant(-1, 8), flightId: selectedFlight.id, flightNo: selectedFlight.flightNo, id: 'flbl_demo', routeRuleCode: 'JM-DEMO', routeRuleVersion: 1, routeScope: 'DOMESTIC', status: 'DRAFT', templateId: 'fbtp_demo', templateName: 'Jetmaster 标准航班账单', templateRevisionNo: 1, updatedAt: instant(0, 1), version: 1 }, flightItems: [{ code: 'FUEL', currency: 'CNY', documentCount: 0, estimatedAmount: 26000, id: 'flbi_demo', name: '航油费用', ownerBillId: 'flbl_demo', ownerType: 'FLIGHT', required: true, status: 'ESTIMATED', updatedAt: instant(0, 1), version: 1 }], history: [], requiredComplete: true, summaries: [{ actualAmount: 0, currency: 'CNY', estimatedAmount: 26000, variance: -26000 }], tripItems: [] };
+    return billForFlight(requestedFlight(cleanPath));
   }
   if (cleanPath.includes('/finance/payment-applications')) return page(payments);
   if (cleanPath === '/finance/cost-statistics/reference-data') return {
