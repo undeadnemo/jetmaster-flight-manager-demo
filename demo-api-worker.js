@@ -546,6 +546,24 @@ const responseFor = (path) => {
   }
   if (
     cleanPath.includes('/operations/flights/') &&
+    cleanPath.endsWith('/movement-events')
+  ) {
+    const selectedFlight = requestedFlight(cleanPath);
+    return {
+      availableActions: [
+        'RECORD_ACTUAL_LANDING',
+        'RECORD_ACTUAL_OFF_BLOCK',
+        'RECORD_ACTUAL_ON_BLOCK',
+        'RECORD_ACTUAL_TAKEOFF',
+        'RECORD_ESTIMATED',
+        'RECORD_ETA',
+      ],
+      events: [],
+      flight: selectedFlight,
+    };
+  }
+  if (
+    cleanPath.includes('/operations/flights/') &&
     cleanPath.endsWith('/detail-resources')
   ) {
     return {
@@ -577,6 +595,7 @@ const responseFor = (path) => {
   if (cleanPath === '/crewops/allowances/batches') return [allowanceBatch];
   if (cleanPath === `/crewops/allowances/batches/${allowanceBatch.id}`) return { batch: allowanceBatch, results: allowanceResults };
   if (cleanPath === '/crewops/allowances/bindings') return [];
+  if (cleanPath === '/crewops/allowances/hourly-pay-results') return [];
   if (cleanPath === '/crewops/allowances/flight-facts') return flights.slice(2, 5).map((flight) => ({
     actualArrivalAirportIcaoCode: flight.arrivalAirportIcao,
     actualDepartureAirportIcaoCode: flight.departureAirportIcao,
