@@ -1,3 +1,4 @@
+// Jetmaster public demo build: 2026-11-11-sanitized-1
 importScripts('./demo-config-snapshot.js');
 importScripts('./demo-live-snapshot.js');
 

@@ -18,7 +18,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans G
 .activity-list article>div{grid-column:2;min-width:0;width:100%}
 @media(max-width:760px){.activity-list{margin-left:45px}.activity-list article>time{left:-45px;width:34px;font-size:11px}.activity-list article{grid-template-columns:14px minmax(0,1fr);gap:9px}.activity-list article>div{padding:12px}.change-box{gap:8px;flex-wrap:wrap}}
 
-/* 嵌入 Starjet SOC 主应用时复用现有侧栏，仅保留详情页内部导航。 */
+/* 嵌入 Jetmaster SOC 主应用时复用现有侧栏，仅保留详情页内部导航。 */
 body.embedded .rail{display:none}
 body.embedded main{width:100%;margin-left:0}
 body.embedded .app-shell{min-height:100vh}
@@ -53,7 +53,7 @@ body.embedded .app-shell{min-height:100vh}
 @media(max-width:900px){.detail-layout{display:block}.rightbar{position:static;display:grid;height:auto;max-height:none;grid-template-columns:1fr 1fr;border-left:0;border-top:1px solid var(--sj-border);gap:var(--sj-space-5)}.rightbar .side-section{margin:0}.rightbar .release{grid-column:1/-1}.content{padding:24px 18px}.tab-panel+.tab-panel{margin-top:40px;padding-top:32px}}
 @media(max-width:760px){.rightbar{grid-template-columns:1fr}.export-material{grid-template-columns:42px minmax(0,1fr);padding:15px}.export-material>button{grid-column:2;justify-self:start}.tabs .tab{flex:0 0 94px}.tab-panel{scroll-margin-top:10px}}
 
-/* Starjet Mission Control Dark */
+/* Jetmaster Mission Control Dark */
 :root{--ink:#eef3f8;--muted:#78859a;--line:#252d3d;--soft:#111722;--navy:#07090e;--blue:#55a8ff;--teal:#35c7b4;--green:#a3e635;--orange:#f5b942;--red:#ff665c;--white:#f8fafc;--shadow:0 10px 28px rgba(0,0,0,.22)}
 html{background:#07090e;color-scheme:dark}
 body{color:var(--ink);background:#07090e}

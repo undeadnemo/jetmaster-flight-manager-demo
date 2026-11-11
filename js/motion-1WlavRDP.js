@@ -1,0 +1,1 @@
+import{r as e}from"./vendor-Dm28L6e7.js";export{e as MotionPlugin};
