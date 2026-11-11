@@ -172,6 +172,131 @@ const collectionItems = (value) =>
     ? value
     : value?.items || value?.content || value?.records || [];
 
+let materializedServiceRows;
+const serviceNodeHistory = new Map();
+
+const serviceStatusFor = (rowIndex, nodeIndex) => {
+  if (rowIndex < 2) return 'COMPLETED';
+  if (rowIndex === 2) {
+    if (nodeIndex < 2) return 'COMPLETED';
+    if (nodeIndex === 2) return 'IN_PROGRESS';
+  }
+  if (rowIndex === 3) {
+    if (nodeIndex === 0) return 'COMPLETED';
+    if (nodeIndex === 1) return 'IN_PROGRESS';
+  }
+  if (rowIndex === 4 && nodeIndex === 0) return 'IN_PROGRESS';
+  return 'NOT_STARTED';
+};
+
+const getMaterializedServiceRows = () => {
+  if (materializedServiceRows) return materializedServiceRows;
+  const snapshot = self.__JETMASTER_LIVE_SNAPSHOT__ || {};
+  const sourceRows = collectionItems(snapshot['/operations/service-progress']);
+  const templates = collectionItems(snapshot['/operations/service-templates']);
+  materializedServiceRows = sourceRows.map((row, rowIndex) => {
+    const template = templates.find(
+      (item) =>
+        item.enabled && item.revision?.direction === row.direction,
+    );
+    const instanceId = `svin_demo_${rowIndex + 1}`;
+    const nodes = (template?.revision?.nodes || []).map((templateNode, nodeIndex) => {
+      const status = serviceStatusFor(rowIndex, nodeIndex);
+      const scheduledAt = new Date(
+        Date.parse(row.scheduledBaseAt) + templateNode.offsetMinutes * 60_000,
+      ).toISOString();
+      const node = {
+        ...templateNode,
+        assigneeName: rowIndex < 4 ? '演示保障员' : null,
+        assigneeUserId: rowIndex < 4 ? 1 : null,
+        completedAt: status === 'COMPLETED' ? scheduledAt : null,
+        evidenceCount: status === 'COMPLETED' ? 1 : 0,
+        id: 10_000 + rowIndex * 100 + nodeIndex + 1,
+        originalScheduledAt: scheduledAt,
+        planningBaseType: 'SCHEDULED',
+        planningSourceEventId: null,
+        remarks:
+          status === 'COMPLETED'
+            ? '演示节点已核对'
+            : status === 'IN_PROGRESS'
+              ? '演示节点正在执行'
+              : null,
+        riskCode: null,
+        scheduledAt,
+        serviceInstanceId: instanceId,
+        startedAt:
+          status === 'IN_PROGRESS' || status === 'COMPLETED'
+            ? scheduledAt
+            : null,
+        status,
+        version: 1,
+      };
+      serviceNodeHistory.set(node.id, [
+        {
+          action: 'INSTANCE_CREATED',
+          actorName: '演示保障员',
+          actorUserId: 1,
+          fromScheduledAt: scheduledAt,
+          fromStatus: 'NOT_STARTED',
+          id: node.id * 10,
+          occurredAt: scheduledAt,
+          reason: '按已发布保障模板生成演示实例',
+          toScheduledAt: scheduledAt,
+          toStatus: status,
+        },
+      ]);
+      return node;
+    });
+    return {
+      ...row,
+      delegateName: rowIndex % 3 === 1 ? '演示值班员' : null,
+      delegateUserId: rowIndex % 3 === 1 ? 2 : null,
+      handlingAgentId: `hagt_demo_${rowIndex + 1}`,
+      handlingAgentName:
+        row.direction === 'DEPARTURE' ? 'Jetmaster 出港代理' : 'Jetmaster 到港代理',
+      instanceVersion: 1,
+      issueCode: null,
+      issueDetail: null,
+      nodes,
+      ownerName: '演示保障员',
+      ownerUserId: 1,
+      planningBaseType: 'SCHEDULED',
+      planningSourceEventId: null,
+      serviceInstanceId: instanceId,
+      templateCode: template?.code || null,
+      templateName: template?.name || null,
+      templateRevisionNo: template?.publishedRevisionNo || null,
+    };
+  });
+  return materializedServiceRows;
+};
+
+const findServiceNode = (nodeId) => {
+  for (const row of getMaterializedServiceRows()) {
+    const node = row.nodes.find((item) => item.id === Number(nodeId));
+    if (node) return node;
+  }
+  return null;
+};
+
+const serviceNodeDetail = (node) => ({
+  adjustments: [],
+  availableActions: [
+    'ADD_EVIDENCE',
+    'BLOCK',
+    'COMPLETE',
+    'CORRECT',
+    'REMOVE_EVIDENCE',
+    'REOPEN',
+    'RESUME',
+    'START',
+    'WAIVE',
+  ],
+  evidence: [],
+  history: serviceNodeHistory.get(node.id) || [],
+  node,
+});
+
 const normalizeFlight = (item = flights[2]) => {
   const departureCode =
     item.departureAirportIcaoCode || item.departureAirportIcao || 'ZSPD';
@@ -370,6 +495,13 @@ const billForFlight = (flight) => {
 const responseFor = (path) => {
   const cleanPath = path.split('?')[0];
   const liveSnapshot = self.__JETMASTER_LIVE_SNAPSHOT__ || {};
+  if (cleanPath === '/operations/service-progress') {
+    return getMaterializedServiceRows();
+  }
+  if (/^\/operations\/service-nodes\/\d+$/.test(cleanPath)) {
+    const node = findServiceNode(cleanPath.split('/').at(-1));
+    return node ? serviceNodeDetail(node) : null;
+  }
   if (
     Object.prototype.hasOwnProperty.call(liveSnapshot, cleanPath) &&
     !cleanPath.startsWith('/crewops/allowances')
@@ -530,6 +662,45 @@ const responseFor = (path) => {
 self.__JETMASTER_DEMO_RESPONSE_FOR__ = responseFor;
 const writeResponseFor = (path, payload) => {
   const cleanPath = path.split('?')[0];
+  const nodeMatch = cleanPath.match(
+    /^\/operations\/service-nodes\/(\d+)(?:\/(waive))?$/,
+  );
+  if (nodeMatch) {
+    const node = findServiceNode(nodeMatch[1]);
+    if (!node) return null;
+    const previousStatus = node.status;
+    node.status = nodeMatch[2] === 'waive' ? 'WAIVED' : payload.targetStatus || node.status;
+    node.version += 1;
+    node.remarks = payload.reason || payload.remarks || node.remarks;
+    if (node.status === 'IN_PROGRESS') node.startedAt = payload.effectiveAt || new Date().toISOString();
+    if (node.status === 'COMPLETED') node.completedAt = payload.effectiveAt || new Date().toISOString();
+    serviceNodeHistory.get(node.id)?.unshift({
+      action: node.status === 'WAIVED' ? 'WAIVED' : 'STATUS_UPDATED',
+      actorName: '演示保障员',
+      actorUserId: 1,
+      fromScheduledAt: node.scheduledAt,
+      fromStatus: previousStatus,
+      id: node.id * 10 + node.version,
+      occurredAt: new Date().toISOString(),
+      reason: payload.reason || '演示操作更新',
+      toScheduledAt: node.scheduledAt,
+      toStatus: node.status,
+    });
+    return { id: node.id, status: node.status, version: node.version };
+  }
+  const instanceMatch = cleanPath.match(/^\/operations\/service-instances\/(.+)$/);
+  if (instanceMatch) {
+    const row = getMaterializedServiceRows().find(
+      (item) => item.serviceInstanceId === instanceMatch[1],
+    );
+    if (row) {
+      row.handlingAgentName = payload.handlingAgentId ? 'Jetmaster 指定代理' : null;
+      row.ownerName = payload.ownerUserId ? '演示保障员' : null;
+      row.delegateName = payload.delegateUserId ? '演示值班员' : null;
+      row.instanceVersion += 1;
+    }
+    return row || { success: true };
+  }
   if (cleanPath === '/crewops/allowances/batches/automatic') return [allowanceBatch];
   if (cleanPath.includes('/crewops/allowances/rules/')) return responseFor(`/crewops/allowances/rules/${allowanceRule.id}`);
   if (cleanPath.startsWith('/master-data/expense-subjects')) return { ...expenseSubjects[0], ...payload, id: payload.id || Date.now() };
