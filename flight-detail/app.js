@@ -9,21 +9,21 @@ const tripLegs = [
   {
     dep:'ZBAA', depName:'北京首都 · PEK', depDate:'20 AUG', depIso:'2026-08-20', depLocal:'06:00', depUtc:'22:00', depBeijing:'06:00',
     arr:'RJTT', arrName:'东京羽田 · HND', arrDate:'20 AUG', arrIso:'2026-08-20', arrLocal:'10:20', arrUtc:'01:20', arrBeijing:'09:20',
-    duration:'3H 20M', distance:'4,621 KM · IFR', taskType:'CHARTER', aircraft:'B-8263', movementState:'arrived', movementUpdatedAt:'10:33:04',
+    duration:'3H 20M', distance:'4,621 KM · IFR', taskType:'CHARTER', aircraft:'B7001', movementState:'arrived', movementUpdatedAt:'10:33:04',
     estimatedDep:{ lt:'06:10', utc:'22:10', beijing:'06:10' }, estimatedArr:{ lt:'10:28', utc:'01:28', beijing:'09:28' },
     actualDep:{ lt:'06:08', utc:'22:08', beijing:'06:08' }, actualArr:{ lt:'10:31', utc:'01:31', beijing:'09:31' },
   },
   {
     dep:'ZSPD', depName:'东京羽田 · HND', depDate:'21 AUG', depIso:'2026-08-21', depLocal:'13:30', depUtc:'05:30', depBeijing:'13:30',
     arr:'ZGGG', arrName:'新加坡樟宜 · SIN', arrDate:'21 AUG', arrIso:'2026-08-21', arrLocal:'16:20', arrUtc:'08:20', arrBeijing:'16:20',
-    duration:'7H 15M', distance:'5,315 KM · IFR', taskType:'PAX', aircraft:'B-9308', movementState:'planned', movementUpdatedAt:'10:32:18', heroStatus:'PLANNING', cardStatus:'准备中',
+    duration:'7H 15M', distance:'5,315 KM · IFR', taskType:'PAX', aircraft:'B7002', movementState:'planned', movementUpdatedAt:'10:32:18', heroStatus:'PLANNING', cardStatus:'准备中',
     estimatedDep:{ lt:'13:30', utc:'05:30', beijing:'13:30' }, estimatedArr:{ lt:'16:20', utc:'08:20', beijing:'16:20' },
     actualDep:null, actualArr:null,
   },
   {
     dep:'WSSS', depName:'新加坡樟宜 · SIN', depDate:'22 AUG', depIso:'2026-08-22', depLocal:'09:00', depUtc:'01:00', depBeijing:'09:00',
     arr:'ZBAA', arrName:'北京首都 · PEK', arrDate:'22 AUG', arrIso:'2026-08-22', arrLocal:'15:10', arrUtc:'07:10', arrBeijing:'15:10',
-    duration:'6H 10M', distance:'4,460 KM · IFR', taskType:'FERRY', aircraft:'B-9811', movementState:'planned', movementUpdatedAt:'10:32:18',
+    duration:'6H 10M', distance:'4,460 KM · IFR', taskType:'FERRY', aircraft:'B7003', movementState:'planned', movementUpdatedAt:'10:32:18',
     estimatedDep:{ lt:'09:00', utc:'01:00', beijing:'09:00' }, estimatedArr:{ lt:'15:10', utc:'07:10', beijing:'15:10' },
     actualDep:null, actualArr:null,
   }
@@ -32,18 +32,18 @@ let activeLeg = 1;
 let timeBasis = 'lt';
 
 const acarsRawMessages = {
-  pos: { type: 'POS', title: '位置报告', receivedAt: '08:42Z', source: 'B-9308', status: '已接收', raw: `/B-9308\nPOS N2334.2 E11318.6\nTIME 0842Z\nALT FL410\nMACH M0.86\nHDG 312\nWIND 278/064KT\nNEXT ZGSZ\nETA 1040Z` },
-  eta: { type: 'ETA', title: '预计到达时间更新', receivedAt: '08:28Z', source: 'B-9308', status: '已接收', raw: `/B-9308\nETA REPORT\nDEST ZGSZ\nETA 1040Z\nEFOB 4860KG\nALTN ZGGG\nSTATUS NORMAL` },
+  pos: { type: 'POS', title: '位置报告', receivedAt: '08:42Z', source: 'B7002', status: '已接收', raw: `/B7002\nPOS N2334.2 E11318.6\nTIME 0842Z\nALT FL410\nMACH M0.86\nHDG 312\nWIND 278/064KT\nNEXT ZGSZ\nETA 1040Z` },
+  eta: { type: 'ETA', title: '预计到达时间更新', receivedAt: '08:28Z', source: 'B7002', status: '已接收', raw: `/B7002\nETA REPORT\nDEST ZGSZ\nETA 1040Z\nEFOB 4860KG\nALTN ZGGG\nSTATUS NORMAL` },
   wx: { type: 'WX', title: '目的地天气回传', receivedAt: '08:15Z', source: 'ACARS', status: '已接收', raw: `/ACARS\nATIS ZGSZ M\nTIME 0815Z\nWIND 180/06KT\nVIS 8KM\nCLOUD SCT020\nTEMP 29/24\nQNH 1008\nRWY 15` },
-  fuel: { type: 'FUEL', title: '燃油状态报告', receivedAt: '08:03Z', source: 'B-9308', status: '已接收', raw: `/B-9308\nFUEL REPORT\nUTC 0803Z\nFOB 12400KG\nUSED 5950KG\nEFOB DEST 4860KG\nREMAINING NOMINAL` },
+  fuel: { type: 'FUEL', title: '燃油状态报告', receivedAt: '08:03Z', source: 'B7002', status: '已接收', raw: `/B7002\nFUEL REPORT\nUTC 0803Z\nFOB 12400KG\nUSED 5950KG\nEFOB DEST 4860KG\nREMAINING NOMINAL` },
 };
 
 const aircraftProfiles = {
-  'B-8263': { model: 'G450', parkingAirport: 'ZSSS', parkingTime: '2026-08-22 19:51' },
-  'B-602M': { model: 'Legacy 650', parkingAirport: 'ZGSZ', parkingTime: '2026-08-22 10:40' },
-  'B-9308': { model: 'G650ER', parkingAirport: 'ZSPD', parkingTime: '2026-08-21 16:20' },
-  'B-9811': { model: 'G650ER', parkingAirport: 'ZBAA', parkingTime: '2026-08-22 17:10' },
-  'B-801Q': { model: 'G650ER', parkingAirport: 'ZUUU', parkingTime: '2026-08-20 12:00' },
+  'B7001': { model: 'G450', parkingAirport: 'ZSSS', parkingTime: '2026-08-22 19:51' },
+  'B7004': { model: 'Legacy 650', parkingAirport: 'ZGSZ', parkingTime: '2026-08-22 10:40' },
+  'B7002': { model: 'G650ER', parkingAirport: 'ZSPD', parkingTime: '2026-08-21 16:20' },
+  'B7003': { model: 'G650ER', parkingAirport: 'ZBAA', parkingTime: '2026-08-22 17:10' },
+  'B7005': { model: 'G650ER', parkingAirport: 'ZUUU', parkingTime: '2026-08-20 12:00' },
 };
 
 const airportProfiles = {
@@ -86,7 +86,7 @@ const detailContent = document.querySelector('.workspace .content');
     const panel = document.getElementById(id);
     if (panel) detailContent?.append(panel);
   });
-const billTemplateStorageKey = 'starjet-flight-bill-templates';
+const billTemplateStorageKey = 'Jetmaster-flight-bill-templates';
 const baseBillTemplates = [
   { code: 'PAX', label: '客运包机', types: [
     { id: 1, name: '航油账单', owner: 'flight' }, { id: 2, name: '地面代理费', owner: 'flight' }, { id: 3, name: '机场费用', owner: 'flight' }, { id: 4, name: '餐食费用', owner: 'trip' }, { id: 5, name: '旅客服务费', owner: 'trip' },
@@ -229,7 +229,7 @@ const defaultAnnouncements = [
   { author: '李悦', content: '时间提前一天至 8.21，21:41 起飞', createdAt: '8.20 21:41' },
 ];
 
-const announcementKey = `starjet-flight-announcements:${detailParams.get('flightId') || 'default'}`;
+const announcementKey = `Jetmaster-flight-announcements:${detailParams.get('flightId') || 'default'}`;
 
 function readAnnouncements() {
   try {
@@ -354,7 +354,7 @@ if (detailParams.get('from') && detailParams.get('to')) {
   }
 }
 
-const flightEditKey = `starjet-flight-edits:${detailParams.get('flightId') || 'default'}`;
+const flightEditKey = `Jetmaster-flight-edits:${detailParams.get('flightId') || 'default'}`;
 let savedFlightEdits = {};
 try {
   savedFlightEdits = JSON.parse(localStorage.getItem(flightEditKey) || '{}') || {};
@@ -366,7 +366,7 @@ Object.entries(savedFlightEdits).forEach(([index, edit]) => {
 });
 
 function renderAircraft(registration) {
-  const profile = aircraftProfiles[registration] || aircraftProfiles['B-8263'];
+  const profile = aircraftProfiles[registration] || aircraftProfiles['B7001'];
   document.querySelector('#aircraftRegistration').textContent = registration;
   document.querySelector('#aircraftModel').textContent = profile.model;
   document.querySelectorAll('.aircraft-registration-value').forEach((element) => { element.textContent = registration; });
@@ -640,7 +640,7 @@ document.querySelector('#missionPrimaryAction')?.addEventListener('click', () =>
 });
 
 const passengerDocumentTable = document.querySelector('.passenger-document-table');
-const passengerDocumentOrderKey = 'starjet-flight-detail-passenger-document-order';
+const passengerDocumentOrderKey = 'Jetmaster-flight-detail-passenger-document-order';
 const getPassengerRowKey = row => row.querySelector('.passenger-primary')?.textContent.trim();
 
 function updatePassengerDocumentCount() {
@@ -1227,7 +1227,7 @@ const postflightServiceProjectList = document.querySelector('#postflightServiceP
 const postflightLogDescription = document.querySelector('#postflightLogDescription');
 const postflightLogCharCount = document.querySelector('#postflightLogCharCount');
 const postflightPendingAttachments = document.querySelector('#postflightPendingAttachments');
-const postflightDraftKey = `starjet-postflight-logs:${detailParams.get('flightId') || 'default'}`;
+const postflightDraftKey = `Jetmaster-postflight-logs:${detailParams.get('flightId') || 'default'}`;
 const serviceEvaluationOptions = [
   ['local-handlers', '当地代理服务', 'Local Handlers Service'],
   ['crew-transport', '场外机组交通服务', 'Outside Transportation Service for Crew'],
@@ -1524,7 +1524,7 @@ document.querySelectorAll('.filters button').forEach(button => button.addEventLi
   button.classList.add('active');
 }));
 
-const groundServiceStorageKey = `starjet-ground-service:${detailParams.get('flightId') || 'default'}`;
+const groundServiceStorageKey = `Jetmaster-ground-service:${detailParams.get('flightId') || 'default'}`;
 const defaultGroundService = {
   dep: {
     location: { fbo: 1, name: '上海机场尚捷商务航空管理有限公司', addr: '上海市长宁区迎宾七路99号', phone: '', lon: '121.346571', lat: '31.186802', googleMaplink: '', routeMapImgList: [] },
