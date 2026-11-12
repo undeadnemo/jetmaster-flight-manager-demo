@@ -172,6 +172,335 @@ const collectionItems = (value) =>
     ? value
     : value?.items || value?.content || value?.records || [];
 
+const paymentDetailFor = (path, snapshot) => {
+  const id = decodeURIComponent(path.split('/').filter(Boolean).at(-1) || '');
+  const application = collectionItems(
+    snapshot['/finance/payment-applications'],
+  ).find((item) => String(item.id) === id);
+  if (!application) return null;
+  const total = Number(application.amount || 0);
+  const firstAmount = (total * 0.6).toFixed(2);
+  const secondAmount = (total - Number(firstAmount)).toFixed(2);
+  const cost = (index, itemName, amount, subjectTypeReference) => ({
+    allocationObjectId: null,
+    allocationObjectReference: null,
+    amount,
+    businessDate: application.businessDate,
+    costCenterId: `fcct_demo_${index}`,
+    costCenterName: '航班运行成本',
+    costNo: `COST-DEMO-${String(index).padStart(3, '0')}`,
+    createdAt: application.createdAt,
+    createdBy: application.createdBy || 1,
+    createdByName: application.createdByName || '演示管理员',
+    currency: application.currency,
+    dimensionType: 'FLIGHT',
+    documentStatus: 'COMPLETE',
+    expenseGroupCode: index === 1 ? 'GROUND_HANDLING' : 'FUEL',
+    expenseGroupName: index === 1 ? '地面保障费' : '航油费',
+    id: `fcit_demo_${index}`,
+    itemName,
+    note: '公网演示费用明细',
+    operatingCompanyId: application.operatingCompanyId,
+    operatingCompanyName: application.operatingCompanyName,
+    paymentApplicationId: application.id,
+    reviewVersion: 0,
+    sourceId: application.id,
+    sourceReference: application.applicationNo,
+    sourceType: 'NON_FLIGHT',
+    status: 'CONFIRMED',
+    subjectTypeId: index === 1 ? 'acct-handling' : 'acct-fuel',
+    subjectTypeReference,
+    supplierId: application.supplierId,
+    supplierName: application.supplierNameSnapshot || application.supplierName,
+    updatedAt: application.updatedAt,
+    version: 0,
+  });
+  return {
+    application,
+    approvalHistory: [],
+    approvalSteps: [],
+    attachments: [],
+    availableActions: [],
+    contractFiles: [],
+    costs: [
+      cost(1, '上海地面保障费', firstAmount, '主营业务成本 / 地面保障费'),
+      cost(2, '北京航油费', secondAmount, '主营业务成本 / 航油费'),
+    ],
+    currencyGroups: [
+      {
+        amount: application.amount,
+        currency: application.currency,
+        executionStatus: application.executionStatus,
+        fundUsedAmount: application.fundUsedAmount,
+        matchingStatus: application.matchingStatus,
+        paidAmount: application.paidAmount,
+        remainingAmount: application.remainingAmount,
+        settledAmount: application.settledAmount,
+        version: application.version,
+      },
+    ],
+    currentApprovalTask: null,
+    fundUsages: [],
+    history: [
+      {
+        action: 'CREATE',
+        actorName: application.createdByName || '演示管理员',
+        actorUserId: application.createdBy || 1,
+        afterValue: application.status,
+        beforeValue: null,
+        comment: '创建付款申请演示数据',
+        id: 1,
+        occurredAt: application.createdAt,
+        traceId: 'demo-payment-create',
+      },
+    ],
+    payments: [],
+    paymentTask: null,
+    paymentTasks: [],
+    timeline: [
+      {
+        action: '创建付款申请',
+        actorName: application.createdByName || '演示管理员',
+        actorUserId: application.createdBy || 1,
+        detail: application.applicationNo,
+        id: 'demo-payment-timeline-1',
+        objectId: application.id,
+        occurredAt: application.createdAt,
+        stage: 'APPLICATION',
+        traceId: 'demo-payment-create',
+      },
+    ],
+  };
+};
+
+const customerProfileFor = (path, snapshot) => {
+  const customerId = Number(path.split('/').filter(Boolean).at(-1));
+  return collectionItems(
+    snapshot['/finance/customer-settlements/customers'],
+  ).find((item) => item.customerId === customerId) || null;
+};
+
+const customerAircraftFor = (path) => {
+  const customerId = Number(path.split('/').filter(Boolean).at(-2));
+  const availableAircraft = config.aircraft || [];
+  const aircraftTypes = config.aircraftTypes || [];
+  const companies = config.operatingCompanies || [];
+  const aircraft = availableAircraft.slice(0, 2).map((item) => {
+    const type = aircraftTypes.find((entry) => entry.id === item.aircraftTypeId);
+    const company = companies.find(
+      (entry) => entry.id === item.operatingCompanyId,
+    );
+    return {
+      aircraftTypeId: item.aircraftTypeId,
+      assignedAt: item.updatedAt || item.createdAt,
+      enabled: item.enabled,
+      id: item.id,
+      modelName: type?.modelName || type?.icaoTypeCode || '公务机',
+      operatingCompanyId: item.operatingCompanyId,
+      operatingCompanyName: company?.name || 'Jetmaster',
+      registrationNo: item.registrationNo,
+    };
+  });
+  return {
+    aircraft,
+    aircraftTypes,
+    availableAircraft,
+    customerId,
+    version: 0,
+  };
+};
+
+const customerCostRulesFor = (path) => ({
+  accountingSubjects: expenseSubjects.map((item) => ({
+    hierarchyDepth: 2,
+    id: item.accountingSubjectId,
+    name: item.accountingSubjectName,
+    parentId: null,
+    path: item.accountingSubjectPath,
+    subjectLevel1: item.accountingSubjectPath.split(' / ')[0],
+    subjectLevel2: item.accountingSubjectName,
+    subjectLevel3: null,
+  })),
+  costItemTypes: config.costItemTypes || [],
+  customerId: Number(path.split('/').filter(Boolean).at(-2)),
+  rules: [],
+  version: 0,
+});
+
+const demoReceivable = () => {
+  const snapshot = self.__JETMASTER_LIVE_SNAPSHOT__ || {};
+  const reconciliation = collectionItems(snapshot['/finance/reconciliations'])[0] || {};
+  return {
+    approvalStatus: 'APPROVED',
+    amount: reconciliation.totalAmount || '180800.00',
+    businessNo: 'AR-261031000001',
+    createdAt: reconciliation.updatedAt || instant(-7, 8),
+    currency: reconciliation.currency || 'CNY',
+    customerId: reconciliation.customerId || 1,
+    customerName: reconciliation.customerName || '演示客户 01',
+    dueDate: businessDate(18),
+    dueStatus: 'NOT_DUE',
+    id: 'recv_demo_01M5ESVV55FSWVC0NQJFKB2F7H',
+    operatingCompanyName: reconciliation.operatingCompanyName || 'Jetmaster',
+    overdueDays: 0,
+    reconciliationId: reconciliation.id || 'rcon_demo_01',
+    remainingAmount: '130800.00',
+    settledAmount: '50000.00',
+    settlementStatus: 'PARTIALLY_SETTLED',
+    title: '2026 年 10 月包机服务应收款',
+    version: 1,
+  };
+};
+
+const demoStatementLink = (receivable) => {
+  const snapshot = self.__JETMASTER_LIVE_SNAPSHOT__ || {};
+  const reconciliation = collectionItems(snapshot['/finance/reconciliations'])[0] || {};
+  return {
+    amount: reconciliation.totalAmount || receivable.amount,
+    attachmentCount: 0,
+    businessNo: reconciliation.businessNo || 'REC-261031000001',
+    currency: reconciliation.currency || receivable.currency,
+    id: reconciliation.id || receivable.reconciliationId,
+    periodFrom: reconciliation.periodFrom || '2026-10-01',
+    periodTo: reconciliation.periodTo || '2026-10-31',
+    receivableId: receivable.id,
+    revisionId: `${receivable.reconciliationId}-revision-1`,
+    revisionNo: 1,
+    status: 'FINALIZED',
+    title: reconciliation.title || '2026 年 10 月客户对账单',
+  };
+};
+
+const receivableWorkspaceList = () => {
+  const receivable = demoReceivable();
+  return {
+    items: [
+      {
+        allowedActions: ['CONFIRM_RECEIPT'],
+        collectionType: 'MONTHLY',
+        receivable,
+        statements: [demoStatementLink(receivable)],
+      },
+    ],
+    page: 1,
+    size: 20,
+    total: 1,
+  };
+};
+
+const receivableWorkspaceOptions = () => ({
+  allowedActions: ['CREATE'],
+  currencies: ['CNY'],
+  customers: collectionItems(
+    (self.__JETMASTER_LIVE_SNAPSHOT__ || {})['/finance/customer-settlements/customers'],
+  ),
+  today: businessDate(),
+});
+
+const receivableWorkspaceDetail = () => {
+  const receivable = demoReceivable();
+  const statement = demoStatementLink(receivable);
+  return {
+    attachments: [],
+    attributions: [],
+    availableBalance: '0.00',
+    collectionType: 'MONTHLY',
+    confirmations: [
+      {
+        active: true,
+        amount: receivable.settledAmount,
+        credentials: [],
+        id: 'rcfm_demo_01',
+        method: 'BANK',
+        occurredAt: instant(-2, 9),
+        operator: '演示财务专员',
+        receiptId: 'rcpt_demo_01',
+        reference: 'BANK-DEMO-202611',
+      },
+    ],
+    core: {
+      actions: [],
+      allowedActions: ['ALLOCATE_RECEIPT'],
+      approvalAttempts: [],
+      lines: [],
+      receivable: {
+        ...receivable,
+        createdBy: 1,
+        createdByName: '演示财务专员',
+        customerCode: 'TEST-FLIGHT-CUSTOMER',
+        currentApprovalAttemptId: null,
+        note: '公网演示应收单',
+        operatingCompanyId: 'opco_01K3Q8X1B3D5F7H9K2M4N6PQRS',
+        reconciliationRevisionId: statement.revisionId,
+        updatedAt: instant(-2, 9),
+      },
+    },
+    statementAttachments: [
+      {
+        attachments: [],
+        businessNo: statement.businessNo,
+        id: statement.id,
+        revisionNo: statement.revisionNo,
+      },
+    ],
+    statements: [statement],
+  };
+};
+
+const customerStatementTemplate = {
+  associationVersion: 1,
+  availableActions: ['PUBLISH', 'UPDATE'],
+  customerId: 1,
+  customerName: '测试包机客户',
+  definition: {
+    basicInfo: {
+      fileName: '{客户}_{账期}_对账单.xlsx',
+      note: '公网演示对账模板',
+      title: '客户月度对账单',
+    },
+    tables: [
+      {
+        fields: [
+          {
+            aggregation: 'NONE',
+            chargeType: 'none',
+            header: '行程',
+            id: 'journey',
+            outputColumn: 'A',
+            sample: '行程 2026-10',
+            serviceRate: 0,
+            sourceField: '行程编号',
+            sourceModule: '行程管理',
+          },
+          {
+            aggregation: 'SUM',
+            chargeType: 'variable',
+            header: '包机服务费',
+            id: 'charter-service',
+            outputColumn: 'B',
+            sample: '180800.00',
+            serviceRate: 0,
+            sourceField: '客户费用',
+            sourceModule: '客户收费/费用归集',
+          },
+        ],
+        id: 'demo-monthly-table',
+        scope: 'journey',
+        title: '月度费用明细',
+      },
+    ],
+  },
+  id: 'cstm_demo_jx_standard',
+  name: 'Jetmaster 标准客户对账模板',
+  publishedDefinition: null,
+  publishedName: 'Jetmaster 标准客户对账模板',
+  publishedRevisionNo: 1,
+  revisionNo: 1,
+  updatedAt: instant(-1, 8),
+  version: 1,
+};
+customerStatementTemplate.publishedDefinition = customerStatementTemplate.definition;
+
 let materializedServiceRows;
 const serviceNodeHistory = new Map();
 
@@ -508,6 +837,50 @@ const responseFor = (path) => {
   ) {
     return liveSnapshot[cleanPath];
   }
+  if (/^\/finance\/payment-applications\/[^/]+$/.test(cleanPath)) {
+    return paymentDetailFor(cleanPath, liveSnapshot);
+  }
+  if (/^\/finance\/customer-settlements\/customers\/\d+$/.test(cleanPath)) {
+    return customerProfileFor(cleanPath, liveSnapshot);
+  }
+  if (/^\/master-data\/customers\/\d+\/aircraft$/.test(cleanPath)) {
+    return customerAircraftFor(cleanPath);
+  }
+  if (/^\/finance\/managed-customers\/\d+\/cost-rules$/.test(cleanPath)) {
+    return customerCostRulesFor(cleanPath);
+  }
+  if (cleanPath === '/finance/receivable-workspace') {
+    return receivableWorkspaceList();
+  }
+  if (cleanPath === '/finance/receivable-workspace/options') {
+    return receivableWorkspaceOptions();
+  }
+  if (/^\/finance\/receivable-workspace\/[^/]+$/.test(cleanPath)) {
+    return receivableWorkspaceDetail();
+  }
+  if (cleanPath === '/finance/operating-costs/customer-allocations') {
+    return [];
+  }
+  if (cleanPath === '/finance/customer-statement-templates') {
+    return page([customerStatementTemplate]);
+  }
+  if (cleanPath === '/finance/customer-statement-templates/workbook-fillers') {
+    return [{ code: 'FLIGHT_PLAN_V1', label: '按航班计划填充' }];
+  }
+  if (/^\/finance\/customer-statement-templates\/[^/]+$/.test(cleanPath)) {
+    return customerStatementTemplate;
+  }
+  if (/^\/finance\/customer-statement-templates\/[^/]+\/revisions$/.test(cleanPath)) {
+    return [
+      {
+        createdAt: customerStatementTemplate.updatedAt,
+        definition: customerStatementTemplate.definition,
+        name: customerStatementTemplate.name,
+        publishedAt: customerStatementTemplate.updatedAt,
+        revisionNo: 1,
+      },
+    ];
+  }
   if (cleanPath === '/operations/workbench') return {
     flights: flights.slice(2, 6), generatedAt: new Date().toISOString(), myTodos: tasks,
     notifications, operatingDate: businessDate(), readiness: serviceRows,
@@ -629,6 +1002,9 @@ const responseFor = (path) => {
   if (cleanPath === '/aviation/handling-agents') return configPage('handlingAgents');
   if (/^\/aviation\/handling-agents\/[^/]+$/.test(cleanPath)) return configDetail('handlingAgents', cleanPath);
   if (cleanPath === '/master-data/customers') return configPage('customers');
+  if (/^\/master-data\/customers\/\d+$/.test(cleanPath)) {
+    return configDetail('customers', cleanPath);
+  }
   if (cleanPath === '/master-data/materials') return configPage('materials');
   if (cleanPath === '/master-data/suppliers') return configPage('suppliers');
   if (cleanPath === '/master-data/units') return configPage('units');
