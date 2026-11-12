@@ -91,6 +91,33 @@ const crew = [
   { employeeNo: 'JM-C003', id: 403, name: '周乘务长', position: '乘务长', status: 'ON_DUTY' },
   { employeeNo: 'JM-C004', id: 404, name: '许乘务员', position: '乘务员', status: 'AVAILABLE' },
 ];
+const crewCandidateSeed = [
+  ['PIC', 'crpf_demo_pic_01', 'JM-C001', '陈浩然', 'ZSPD', '2027-12-31'],
+  ['PIC', 'crpf_demo_pic_02', 'JM-C005', '沈嘉航', 'ZBAA', '2027-10-31'],
+  ['CAPTAIN', 'crpf_demo_captain_01', 'JM-C006', '顾明远', 'ZSPD', '2028-03-31'],
+  ['CAPTAIN', 'crpf_demo_captain_02', 'JM-C007', '程屹', 'ZGSZ', '2027-09-30'],
+  ['SIC', 'crpf_demo_sic_01', 'JM-C002', '林晨', 'ZSPD', '2027-11-30'],
+  ['SIC', 'crpf_demo_sic_02', 'JM-C008', '韩子墨', 'ZBAA', '2028-01-31'],
+  ['CABIN_CREW', 'crpf_demo_cabin_01', 'JM-C003', '周悦', 'ZSPD', '2027-08-31'],
+  ['CABIN_CREW', 'crpf_demo_cabin_02', 'JM-C004', '许安然', 'ZSPD', '2028-02-29'],
+  ['INSTRUCTOR', 'crpf_demo_instructor_01', 'JM-C009', '梁启航', 'ZBAA', '2027-12-31'],
+  ['INSPECTOR', 'crpf_demo_inspector_01', 'JM-C010', '叶峻', 'ZSPD', '2027-12-31'],
+  ['MECHANIC', 'crpf_demo_mechanic_01', 'JM-C011', '赵工', 'ZSPD', '2028-06-30'],
+  ['ON_BOARD', 'crpf_demo_onboard_01', 'JM-C012', '方琳', 'ZSPD', '2028-06-30'],
+  ['ON_BOARD', 'crpf_demo_onboard_02', 'JM-C013', '宋予安', 'ZBAA', '2028-06-30'],
+];
+const crewCandidates = crewCandidateSeed.map(
+  ([dutyRole, crewProfileId, crewNo, employeeName, baseAirportIcaoCode, qualificationExpiresOn]) => ({
+    baseAirportIcaoCode,
+    crewNo,
+    crewProfileId,
+    dutyRole,
+    eligible: true,
+    employeeName,
+    issues: [],
+    qualificationExpiresOn,
+  }),
+);
 const suppliers = [
   { category: '地面代理', code: 'SUP-001', contactName: '李经理', id: 501, name: '浦东公务机服务中心', status: 'ACTIVE' },
   { category: '航油', code: 'SUP-002', contactName: '王经理', id: 502, name: '亚太航油服务', status: 'ACTIVE' },
@@ -136,6 +163,157 @@ const genericRecords = [
   { code: 'DEMO-002', createdAt: instant(0, 2), id: 2, name: '演示记录 B', status: 'PENDING' },
   { code: 'DEMO-003', createdAt: instant(1, 3), id: 3, name: '演示记录 C', status: 'COMPLETED' },
 ];
+const financeCostSubjects = [
+  { hierarchyDepth: 2, id: 'acct-travel', name: '差旅费', parentId: null, path: '管理费用 / 差旅费', subjectLevel1: '管理费用', subjectLevel2: '差旅费', subjectLevel3: null },
+  { hierarchyDepth: 2, id: 'acct-fuel', name: '航油费', parentId: null, path: '主营业务成本 / 航油费', subjectLevel1: '主营业务成本', subjectLevel2: '航油费', subjectLevel3: null },
+];
+const financeCostDimensions = [
+  { code: 'COMPANY', name: '公司成本', objectSourceType: 'OPERATING_COMPANY', resolverKey: 'company', sortOrder: 1 },
+  { code: 'AIRCRAFT', name: '飞机成本', objectSourceType: 'AIRCRAFT', resolverKey: 'aircraft', sortOrder: 2 },
+  { code: 'FLIGHT', name: '航段成本', objectSourceType: 'FLIGHT', resolverKey: 'flight', sortOrder: 3 },
+];
+const recognitionSkills = [
+  { businessType: 'HOTEL', code: 'HOTEL_BILL', currentVersion: 1, displayConfig: {}, id: 'skill-hotel', name: '酒店账单' },
+  { businessType: 'FUEL', code: 'FUEL_BILL', currentVersion: 1, displayConfig: {}, id: 'skill-fuel', name: '航油账单' },
+];
+const recognitionConfig = {
+  autoMatchConfig: {
+    contentKeywords: ['账单', '费用'],
+    extensions: ['pdf', 'png', 'jpg', 'jpeg', 'xls', 'xlsx'],
+    filenameKeywords: ['invoice', '账单'],
+    priority: 80,
+  },
+  displayConfig: {
+    columns: [
+      { editor: 'TEXT', key: 'feeName', label: '费用名称', valuePath: 'feeName', visible: true },
+      { editor: 'MONEY', key: 'amount', label: '金额', valuePath: 'amount', visible: true },
+      { editor: 'TEXT', key: 'currency', label: '币种', valuePath: 'currency', visible: true },
+    ],
+    dataPath: 'items',
+    displayType: 'TABLE',
+    rowKeyPath: 'lineNo',
+  },
+  jsonSchema: {
+    properties: {
+      items: {
+        items: {
+          properties: {
+            amount: { type: 'string' },
+            currency: { type: 'string' },
+            feeName: { type: 'string' },
+            lineNo: { type: 'integer' },
+          },
+          required: ['lineNo', 'feeName', 'amount', 'currency'],
+          type: 'object',
+        },
+        type: 'array',
+      },
+    },
+    required: ['items'],
+    type: 'object',
+  },
+  mappings: [],
+  modelId: 'glm-4v-demo',
+  ocrProvider: 'ZHIPU_GLM_OCR',
+  pdfPageScope: 'ALL',
+  promptText: '识别账单中的费用名称、金额与币种，返回结构化明细。',
+};
+const recognitionTemplate = {
+  availableActions: ['EDIT', 'PUBLISH', 'ENABLE', 'DELETE'],
+  draftConfig: recognitionConfig,
+  enabled: true,
+  id: 'brtp_demo_jetmaster_01',
+  mappingDraft: { mappings: [] },
+  mappingVersion: 1,
+  name: 'Jetmaster 航空服务账单模板',
+  publishedMappingRevision: 1,
+  publishedRevision: 1,
+  revisions: [],
+  samples: [],
+  templateNumber: '2004',
+  tests: [],
+  version: 1,
+};
+const recognitionReference = {
+  defaults: recognitionConfig,
+  dimensions: financeCostDimensions,
+  expenseGroups: [
+    { code: 'GROUND_HANDLING', enabled: true, name: '地面保障' },
+    { code: 'FUEL', enabled: true, name: '航油' },
+  ],
+  models: [{ id: 'glm-4v-demo', name: 'Jetmaster 视觉识别模型' }],
+  subjects: financeCostSubjects,
+  supportsDefaultMapping: true,
+  supportsTemplateNumber: true,
+  templateExpenseGroups: [
+    { code: 'GROUND_HANDLING', defaultSubjectTypeId: 'acct-travel', name: '地面保障' },
+    { code: 'FUEL', defaultSubjectTypeId: 'acct-fuel', name: '航油' },
+  ],
+};
+const demoEntryDraftId = 'fent_demo_normal_01';
+const entryDetail = (paymentType = 'NORMAL') => ({
+  allocations: [],
+  candidates: [],
+  contractFiles: [],
+  costs: [],
+  draft: {
+    applicantDepartmentName: '运行保障部',
+    applicationDate: businessDate(),
+    contractName: null,
+    contractNo: null,
+    contractSource: 'NONE',
+    createdAt: instant(0, 0),
+    createdBy: 1,
+    createdByName: '演示人员',
+    currency: 'CNY',
+    currentStep: 1,
+    description: null,
+    dueDate: null,
+    id: demoEntryDraftId,
+    operatingCompanyId: null,
+    operatingCompanyName: null,
+    payeeAccountId: null,
+    paymentApplicationId: null,
+    paymentType,
+    status: 'DRAFT',
+    supplierId: null,
+    supplierName: null,
+    title: null,
+    updatedAt: instant(0, 0),
+    valid: true,
+    version: 1,
+  },
+  files: [],
+  paymentApplication: null,
+});
+const entryReference = {
+  approvalRoute: [
+    { approverName: '财务经理', key: 'DEPARTMENT_MANAGER', name: '部门负责人审核' },
+    { approverName: '财务专员', key: 'ACCOUNTS_PAYABLE', name: '财务应付复核' },
+  ],
+  customers: [],
+  handlers: [],
+  operatingCompanies: [{ code: company.code, description: '', id: String(company.id), label: company.name }],
+  paymentApplicationTypes: [{
+    approvalRoute: [
+      { approverName: '财务经理', key: 'DEPARTMENT_MANAGER', name: '部门负责人审核' },
+      { approverName: '财务专员', key: 'ACCOUNTS_PAYABLE', name: '财务应付复核' },
+    ],
+    code: 'CORPORATE_PAYMENT',
+    defaultType: true,
+    name: '对公付款',
+    submitNodeDescription: '填写并提交付款申请',
+    submitNodeName: '业务提报',
+  }],
+  suppliers: suppliers.map((supplier) => ({
+    bankAccountLast4: null,
+    bankAccountStatus: 'UNAVAILABLE',
+    code: supplier.code,
+    description: supplier.category,
+    id: String(supplier.id),
+    label: supplier.name,
+  })),
+};
 const allowanceRule = {
   calculationMode: 'DOMESTIC_OVERSEAS', code: 'JM-ALLOWANCE-01', currentRevisionNo: 1,
   id: 'alrl_demo00000000000000000001', name: 'Jetmaster 机组驻外补贴规则',
@@ -823,6 +1001,7 @@ const billForFlight = (flight) => {
 
 const responseFor = (path) => {
   const cleanPath = path.split('?')[0];
+  const query = new URL(path, 'https://demo.invalid').searchParams;
   const liveSnapshot = self.__JETMASTER_LIVE_SNAPSHOT__ || {};
   if (cleanPath === '/operations/service-progress') {
     return getMaterializedServiceRows();
@@ -964,6 +1143,10 @@ const responseFor = (path) => {
   if (cleanPath.startsWith('/operations/service-progress')) return page(serviceRows);
   if (cleanPath.startsWith('/operations/flight-releases')) return page(releases);
   if (cleanPath === '/crewops/roster') return { events: crew.map((member, index) => ({ endTime: instant(index % 2, 10), id: index + 1, resourceId: member.id, startTime: instant(index % 2, 2), title: flights[index + 2]?.flightNo || '备勤' })), flights };
+  if (cleanPath === '/crewops/candidates') {
+    const dutyRole = query.get('dutyRole');
+    return crewCandidates.filter((candidate) => !dutyRole || candidate.dutyRole === dutyRole);
+  }
   if (cleanPath.includes('/crewops/employee-options') || cleanPath.includes('/crewops/profiles')) return page(crew);
   if (cleanPath === '/crewops/allowances/batches') return [allowanceBatch];
   if (cleanPath === `/crewops/allowances/batches/${allowanceBatch.id}`) return { batch: allowanceBatch, results: allowanceResults };
@@ -1024,6 +1207,13 @@ const responseFor = (path) => {
     return billForFlight(requestedFlight(cleanPath));
   }
   if (cleanPath.includes('/finance/payment-applications')) return page(payments);
+  if (cleanPath === '/finance/entry-reference-data') return entryReference;
+  if (cleanPath === '/finance/cost-dimensions') return financeCostDimensions;
+  if (cleanPath === '/finance/entry-recognition-skills') return recognitionSkills;
+  if (/^\/finance\/entry-drafts\/[^/]+$/.test(cleanPath)) return entryDetail();
+  if (cleanPath === '/finance/recognition-templates/reference-data') return recognitionReference;
+  if (cleanPath === '/finance/recognition-templates') return { items: [recognitionTemplate], total: 1 };
+  if (/^\/finance\/recognition-templates\/[^/]+$/.test(cleanPath)) return recognitionTemplate;
   if (cleanPath === '/finance/cost-statistics/reference-data') return {
     currencies: ['CNY', 'USD'],
     dimensions: ['COMPANY', 'CUSTOMER', 'AIRCRAFT', 'TRIP', 'FLIGHT', 'STATION', 'ROUTE'],
@@ -1037,14 +1227,7 @@ const responseFor = (path) => {
     unallocated: [{ cost: '3200.00', currency: 'CNY', recordCount: 1 }],
   };
   if (cleanPath === '/finance/cost-statistics/details') return { items: [], page: 1, size: 20, total: 0 };
-  if (cleanPath === '/finance/entry-cost-subjects') return [
-    { hierarchyDepth: 2, id: 'acct-travel', name: '差旅费', parentId: null, path: '管理费用 / 差旅费', subjectLevel1: '管理费用', subjectLevel2: '差旅费', subjectLevel3: null },
-    { hierarchyDepth: 2, id: 'acct-fuel', name: '航油费', parentId: null, path: '主营业务成本 / 航油费', subjectLevel1: '主营业务成本', subjectLevel2: '航油费', subjectLevel3: null },
-  ];
-  if (cleanPath === '/finance/entry-recognition-skills') return [
-    { businessType: 'HOTEL', code: 'HOTEL_BILL', currentVersion: 1, displayConfig: {}, id: 'skill-hotel', name: '酒店账单' },
-    { businessType: 'FUEL', code: 'FUEL_BILL', currentVersion: 1, displayConfig: {}, id: 'skill-fuel', name: '航油账单' },
-  ];
+  if (cleanPath === '/finance/entry-cost-subjects') return financeCostSubjects;
   if (cleanPath.startsWith('/finance')) return page(genericRecords.map((item, index) => ({ ...item, amount: 12000 + index * 8600, currency: 'CNY' })));
   if (cleanPath.startsWith('/suppliers')) return configPage('suppliers');
   if (cleanPath.startsWith('/files')) return page([{ fileName: 'JM2316-放行资料.pdf', id: 1, size: 245760, status: 'AVAILABLE' }, { fileName: 'B1234-保险凭证.pdf', id: 2, size: 182400, status: 'AVAILABLE' }]);
@@ -1098,6 +1281,7 @@ const writeResponseFor = (path, payload) => {
   }
   if (cleanPath === '/crewops/allowances/batches/automatic') return [allowanceBatch];
   if (cleanPath.includes('/crewops/allowances/rules/')) return responseFor(`/crewops/allowances/rules/${allowanceRule.id}`);
+  if (cleanPath === '/finance/entry-drafts/current') return entryDetail(payload.paymentType || 'NORMAL');
   if (cleanPath.startsWith('/master-data/expense-subjects')) return { ...expenseSubjects[0], ...payload, id: payload.id || Date.now() };
   return { ...payload, id: payload.id || `demo-${Date.now()}`, success: true, traceId: 'demo-local-write' };
 };
